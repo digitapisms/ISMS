@@ -31,15 +31,15 @@ class ClassModel extends Equatable {
       schoolId: map['school_id'] as String,
       name: map['name'] as String,
       code: map['code'] as String?,
-      level: map['level'] as int?,
+      level: map['level'] as int?, // Column may not exist in database
       description: map['description'] as String?,
       isActive: (map['is_active'] as bool?) ?? true,
       sectionCount: map['section_count'] as int?,
       createdAt: map['created_at'] != null
-          ? DateTime.parse(map['created_at'])
+          ? DateTime.parse(map['created_at'] as String)
           : null,
       updatedAt: map['updated_at'] != null
-          ? DateTime.parse(map['updated_at'])
+          ? DateTime.parse(map['updated_at'] as String)
           : null,
     );
   }

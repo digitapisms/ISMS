@@ -90,7 +90,7 @@ class ExamsTab extends ConsumerWidget {
                         subtitle: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('${exam.examType.displayName}'),
+                            Text(exam.examType.displayName),
                             if (exam.academicYear != null)
                               Text('Academic Year: ${exam.academicYear}'),
                             if (exam.startDate != null && exam.endDate != null)

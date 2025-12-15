@@ -21,8 +21,8 @@ class _MeetingFormDialogState extends ConsumerState<MeetingFormDialog> {
   String? _selectedStudentId;
   DateTime _meetingDate = DateTime.now();
   TimeOfDay _meetingTime = TimeOfDay.now();
-  int _durationMinutes = 30;
-  MeetingType _meetingType = MeetingType.scheduled;
+  final int _durationMinutes = 30;
+  final MeetingType _meetingType = MeetingType.scheduled;
 
   @override
   void dispose() {

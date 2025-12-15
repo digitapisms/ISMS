@@ -5,6 +5,7 @@ import '../domain/certificate.dart';
 import '../domain/certificate_template.dart';
 import '../domain/certificate_field.dart';
 import '../domain/certificate_type.dart';
+import '../domain/certificate_data.dart';
 
 class CertificatesRepository {
   SupabaseClient get _client => SupabaseManager.client;
@@ -34,14 +35,16 @@ class CertificatesRepository {
   // CERTIFICATE TEMPLATES
   // ============================================================
 
-  Future<CertificateTemplate> createTemplate(CertificateTemplate template) async {
+  Future<CertificateTemplate> createTemplate(
+    CertificateTemplate template,
+  ) async {
     _requireSchoolId();
     final response = await _client
         .from('certificate_templates')
         .insert(_withSchoolId(template.toJson()))
         .select()
         .single();
-    return CertificateTemplate.fromJson(response as Map<String, dynamic>);
+    return CertificateTemplate.fromJson(response);
   }
 
   Future<List<CertificateTemplate>> fetchTemplates({
@@ -67,11 +70,15 @@ class CertificatesRepository {
 
     final response = await query.order('template_name');
     return (response as List)
-        .map((json) => CertificateTemplate.fromJson(json as Map<String, dynamic>))
+        .map(
+          (json) => CertificateTemplate.fromJson(json as Map<String, dynamic>),
+        )
         .toList();
   }
 
-  Future<CertificateTemplate> updateTemplate(CertificateTemplate template) async {
+  Future<CertificateTemplate> updateTemplate(
+    CertificateTemplate template,
+  ) async {
     _requireSchoolId();
     final response = await _client
         .from('certificate_templates')
@@ -80,7 +87,7 @@ class CertificatesRepository {
         .eq('school_id', _requireSchoolId())
         .select()
         .single();
-    return CertificateTemplate.fromJson(response as Map<String, dynamic>);
+    return CertificateTemplate.fromJson(response);
   }
 
   Future<void> deleteTemplate(String templateId) async {
@@ -103,7 +110,7 @@ class CertificatesRepository {
         .insert(_withSchoolId(field.toJson()))
         .select()
         .single();
-    return CertificateField.fromJson(response as Map<String, dynamic>);
+    return CertificateField.fromJson(response);
   }
 
   Future<List<CertificateField>> fetchFields(String templateId) async {
@@ -126,7 +133,7 @@ class CertificatesRepository {
 
   Future<Certificate> generateCertificate(Certificate certificate) async {
     _requireSchoolId();
-    
+
     // Generate certificate number if not provided
     if (certificate.certificateNumber.isEmpty) {
       final response = await _client.rpc(
@@ -164,7 +171,7 @@ class CertificatesRepository {
           .insert(_withSchoolId(updatedCert.toJson()))
           .select()
           .single();
-      return Certificate.fromJson(insertResponse as Map<String, dynamic>);
+      return Certificate.fromJson(insertResponse);
     }
 
     final response = await _client
@@ -172,7 +179,7 @@ class CertificatesRepository {
         .insert(_withSchoolId(certificate.toJson()))
         .select()
         .single();
-    return Certificate.fromJson(response as Map<String, dynamic>);
+    return Certificate.fromJson(response);
   }
 
   Future<List<Certificate>> fetchCertificates({
@@ -219,7 +226,7 @@ class CertificatesRepository {
         .eq('school_id', _requireSchoolId())
         .select()
         .single();
-    return Certificate.fromJson(response as Map<String, dynamic>);
+    return Certificate.fromJson(response);
   }
 
   Future<void> markAsDownloaded(String certificateId) async {
@@ -246,14 +253,15 @@ class CertificatesRepository {
         .eq('school_id', _requireSchoolId());
   }
 
-  Future<void> updatePdfUrl(String certificateId, String pdfUrl, String pdfPath) async {
+  Future<void> updatePdfUrl(
+    String certificateId,
+    String pdfUrl,
+    String pdfPath,
+  ) async {
     _requireSchoolId();
     await _client
         .from('certificates')
-        .update({
-          'pdf_url': pdfUrl,
-          'pdf_path': pdfPath,
-        })
+        .update({'pdf_url': pdfUrl, 'pdf_path': pdfPath})
         .eq('id', certificateId)
         .eq('school_id', _requireSchoolId());
   }
@@ -268,19 +276,35 @@ class CertificatesRepository {
     _requireSchoolId();
     final certificates = <Certificate>[];
 
+    // Get template to determine certificate type
+    final template = await _client
+        .from('certificate_templates')
+        .select()
+        .eq('id', templateId)
+        .eq('school_id', _requireSchoolId())
+        .single();
+    final certificateTemplate = CertificateTemplate.fromJson(
+      template,
+    );
+
     for (final recipientId in recipientIds) {
       final certificate = Certificate(
         id: '',
         schoolId: _requireSchoolId(),
         templateId: templateId,
         certificateNumber: '', // Will be generated
-        certificateType: CertificateType.leaving, // TODO: Get from template
+        certificateType: certificateTemplate.certificateType,
         recipientType: recipientType,
         recipientId: recipientId,
-        recipientName: certificateDataMap[recipientId]?['name'] as String? ?? 'Unknown',
+        recipientName:
+            certificateDataMap[recipientId]?['name'] as String? ?? 'Unknown',
         issuedDate: DateTime.now(),
         issuedBy: issuedBy,
-        certificateData: certificateDataMap[recipientId],
+        certificateData: certificateDataMap[recipientId] != null
+            ? createCertificateDataFromJson(
+                certificateDataMap[recipientId] as Map<String, dynamic>,
+              )
+            : null,
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),
       );
@@ -292,4 +316,3 @@ class CertificatesRepository {
     return certificates;
   }
 }
-

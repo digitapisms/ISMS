@@ -20,7 +20,7 @@ class _CreateClubDialogState extends ConsumerState<CreateClubDialog> {
   final _tagController = TextEditingController();
 
   ClubStatus _status = ClubStatus.active;
-  List<String> _tags = [];
+  final List<String> _tags = [];
   bool _isSubmitting = false;
 
   @override
@@ -198,7 +198,7 @@ class _CreateClubDialogState extends ConsumerState<CreateClubDialog> {
                   ],
                   const SizedBox(height: 16),
                   DropdownButtonFormField<ClubStatus>(
-                    value: _status,
+                    initialValue: _status,
                     decoration: const InputDecoration(
                       labelText: 'Status',
                       border: OutlineInputBorder(),

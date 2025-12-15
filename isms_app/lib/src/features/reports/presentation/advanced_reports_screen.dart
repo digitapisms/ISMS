@@ -179,7 +179,7 @@ class _AdvancedReportsScreenState extends ConsumerState<AdvancedReportsScreen> {
           children: [
             Expanded(
               child: DropdownButtonFormField<int>(
-                value: _selectedTimeRange,
+                initialValue: _selectedTimeRange,
                 decoration: const InputDecoration(
                   labelText: 'Time Range',
                   border: OutlineInputBorder(),
@@ -200,7 +200,7 @@ class _AdvancedReportsScreenState extends ConsumerState<AdvancedReportsScreen> {
             const SizedBox(width: 16),
             Expanded(
               child: DropdownButtonFormField<String>(
-                value: _selectedReportType,
+                initialValue: _selectedReportType,
                 decoration: const InputDecoration(
                   labelText: 'Report Type',
                   border: OutlineInputBorder(),

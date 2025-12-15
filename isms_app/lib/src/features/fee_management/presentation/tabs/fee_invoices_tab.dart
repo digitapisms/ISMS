@@ -10,6 +10,7 @@ import '../dialogs/fee_invoice_form_dialog.dart';
 import '../dialogs/bulk_invoice_generation_dialog.dart';
 import '../widgets/payment_button.dart';
 import '../widgets/fee_reminder_button.dart';
+import '../widgets/three_copy_invoice_viewer.dart';
 import '../../services/pdf_service.dart';
 import '../../../student_management/application/student_providers.dart';
 import '../../../student_management/domain/student.dart';
@@ -164,34 +165,55 @@ class FeeInvoicesTab extends ConsumerWidget {
                             ),
                           ],
                         ),
-                        trailing: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.end,
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            Text(
-                              'PKR ${invoice.totalAmount.toStringAsFixed(2)}',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                              ),
+                            IconButton(
+                              icon: const Icon(Icons.visibility_outlined),
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) =>
+                                        ThreeCopyInvoiceViewer(
+                                          invoiceId: invoice.id,
+                                        ),
+                                  ),
+                                );
+                              },
+                              tooltip: 'View Three Copies',
                             ),
-                            if (invoice.paidAmount > 0)
-                              Text(
-                                'Paid: PKR ${invoice.paidAmount.toStringAsFixed(2)}',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey[600],
+                            const SizedBox(width: 8),
+                            Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Text(
+                                  'PKR ${invoice.totalAmount.toStringAsFixed(2)}',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                  ),
                                 ),
-                              ),
-                            const SizedBox(height: 8),
-                            if (invoice.isPaid)
-                              const Icon(
-                                Icons.check_circle,
-                                color: Colors.green,
-                                size: 20,
-                              )
-                            else
-                              PaymentButton(invoice: invoice),
+                                if (invoice.paidAmount > 0)
+                                  Text(
+                                    'Paid: PKR ${invoice.paidAmount.toStringAsFixed(2)}',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey[600],
+                                    ),
+                                  ),
+                                const SizedBox(height: 8),
+                                if (invoice.isPaid)
+                                  const Icon(
+                                    Icons.check_circle,
+                                    color: Colors.green,
+                                    size: 20,
+                                  )
+                                else
+                                  PaymentButton(invoice: invoice),
+                              ],
+                            ),
                           ],
                         ),
                         onTap: () async {

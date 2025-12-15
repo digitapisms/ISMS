@@ -88,7 +88,7 @@ class _AddCashReceiptDialogState extends ConsumerState<AddCashReceiptDialog> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               DropdownButtonFormField<Student>(
-                                value: _selectedStudent,
+                                initialValue: _selectedStudent,
                                 decoration: const InputDecoration(
                                   labelText: 'Student (Optional)',
                                   border: OutlineInputBorder(),
@@ -217,7 +217,7 @@ class _AddCashReceiptDialogState extends ConsumerState<AddCashReceiptDialog> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surfaceVariant,
+                color: Theme.of(context).colorScheme.surfaceContainerHighest,
                 border: Border(
                   top: BorderSide(color: Theme.of(context).dividerColor),
                 ),

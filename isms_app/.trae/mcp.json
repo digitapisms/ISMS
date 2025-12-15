@@ -1,0 +1,9 @@
+{
+  "servers": [
+    {
+      "id": "postgres-mcp",
+      "transport": "http",
+      "url": "http://localhost:3001"
+    }
+  ]
+}

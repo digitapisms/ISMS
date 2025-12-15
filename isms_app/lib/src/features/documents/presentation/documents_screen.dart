@@ -109,7 +109,7 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
                   ),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
-                    value: _selectedDocumentType,
+                    initialValue: _selectedDocumentType,
                     decoration: InputDecoration(
                       labelText: 'Document Type',
                       border: OutlineInputBorder(

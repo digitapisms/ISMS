@@ -229,7 +229,7 @@ class _ItemFormDialogState extends ConsumerState<ItemFormDialog> {
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<ConditionStatus>(
-                  value: _conditionStatus,
+                  initialValue: _conditionStatus,
                   decoration: InputDecoration(
                     labelText: 'Condition',
                     border: OutlineInputBorder(

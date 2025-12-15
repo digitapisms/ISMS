@@ -44,7 +44,7 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
 
   Future<void> _loadDefaultPrompt() async {
     final promptsAsync = ref.read(aiPromptsProvider);
-    await promptsAsync.whenData((prompts) {
+    promptsAsync.whenData((prompts) {
       if (prompts.isNotEmpty && _selectedPrompt == null) {
         // Find AI Chat prompt or use first one
         final chatPrompt = prompts.firstWhere(
@@ -131,7 +131,7 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
     _pollingTimer?.cancel();
     _pollingTimer = Timer.periodic(const Duration(seconds: 2), (timer) async {
       final taskAsync = ref.read(aiTaskProvider(taskId));
-      await taskAsync.whenData((task) {
+      taskAsync.whenData((task) {
         if (task == null) return;
 
         setState(() {
@@ -408,7 +408,7 @@ class _ChatBubble extends StatelessWidget {
               decoration: BoxDecoration(
                 color: isUser
                     ? Theme.of(context).colorScheme.primary
-                    : Theme.of(context).colorScheme.surfaceVariant,
+                    : Theme.of(context).colorScheme.surfaceContainerHighest,
                 borderRadius: BorderRadius.circular(16).copyWith(
                   bottomRight: isUser ? const Radius.circular(4) : null,
                   bottomLeft: !isUser ? const Radius.circular(4) : null,

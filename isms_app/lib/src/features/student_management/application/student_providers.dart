@@ -1,12 +1,14 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/network/supabase_providers.dart';
 import '../../../core/tenant/tenant_context.dart';
 import '../../authentication/application/auth_providers.dart';
 import '../data/student_repository.dart';
 import '../domain/student.dart';
 
 final studentRepositoryProvider = Provider<StudentRepository>((ref) {
-  final repo = StudentRepository();
+  final client = ref.read(databaseClientProvider);
+  final repo = StudentRepository(client: client);
   final tenantSchool = ref.watch(tenantContextProvider);
   final authUser = ref.watch(authStateProvider);
   repo.setSchoolId(tenantSchool?.id ?? authUser?.schoolId);

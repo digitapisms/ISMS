@@ -310,7 +310,7 @@ class _PlanEditorViewState extends ConsumerState<PlanEditorView> {
   }
 }
 
-class _FeatureRow extends StatelessWidget {
+class _FeatureRow extends StatefulWidget {
   const _FeatureRow({
     required this.feature,
     required this.isEnabled,
@@ -326,6 +326,59 @@ class _FeatureRow extends StatelessWidget {
   final ValueChanged<int?> onLimitChanged;
 
   @override
+  State<_FeatureRow> createState() => _FeatureRowState();
+}
+
+class _FeatureRowState extends State<_FeatureRow> {
+  late TextEditingController _limitController;
+  String? _limitError;
+
+  @override
+  void initState() {
+    super.initState();
+    _limitController = TextEditingController(
+      text: widget.limit?.toString() ?? '',
+    );
+    _limitController.addListener(_validateLimit);
+  }
+
+  @override
+  void didUpdateWidget(_FeatureRow oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Update controller if limit changed externally
+    if (oldWidget.limit != widget.limit) {
+      _limitController.text = widget.limit?.toString() ?? '';
+    }
+  }
+
+  void _validateLimit() {
+    final value = _limitController.text.trim();
+    if (value.isEmpty) {
+      setState(() => _limitError = null);
+      widget.onLimitChanged(null);
+      return;
+    }
+
+    final intValue = int.tryParse(value);
+    if (intValue == null) {
+      setState(() => _limitError = 'Invalid number');
+      widget.onLimitChanged(null);
+    } else if (intValue < 1) {
+      setState(() => _limitError = 'Must be at least 1');
+      widget.onLimitChanged(null);
+    } else {
+      setState(() => _limitError = null);
+      widget.onLimitChanged(intValue);
+    }
+  }
+
+  @override
+  void dispose() {
+    _limitController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
@@ -333,52 +386,44 @@ class _FeatureRow extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         child: Row(
           children: [
-            Switch(value: isEnabled, onChanged: onToggle),
+            Switch(value: widget.isEnabled, onChanged: widget.onToggle),
             const SizedBox(width: 16),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    feature.featureName,
+                    widget.feature.featureName,
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w500,
                     ),
                   ),
-                  if (feature.description != null) ...[
+                  if (widget.feature.description != null) ...[
                     const SizedBox(height: 4),
                     Text(
-                      feature.description!,
+                      widget.feature.description!,
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                   ],
                 ],
               ),
             ),
-            if (isEnabled) ...[
+            if (widget.isEnabled) ...[
               const SizedBox(width: 16),
               SizedBox(
                 width: 120,
                 child: TextField(
-                  decoration: const InputDecoration(
+                  controller: _limitController,
+                  decoration: InputDecoration(
                     labelText: 'Limit',
                     hintText: 'Unlimited',
-                    border: OutlineInputBorder(),
+                    border: const OutlineInputBorder(),
                     isDense: true,
+                    errorText: _limitError,
+                    errorMaxLines: 2,
                   ),
                   keyboardType: TextInputType.number,
                   inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                  controller: TextEditingController(
-                    text: limit?.toString() ?? '',
-                  ),
-                  onChanged: (value) {
-                    if (value.isEmpty) {
-                      onLimitChanged(null);
-                    } else {
-                      final intValue = int.tryParse(value);
-                      onLimitChanged(intValue);
-                    }
-                  },
                 ),
               ),
             ],

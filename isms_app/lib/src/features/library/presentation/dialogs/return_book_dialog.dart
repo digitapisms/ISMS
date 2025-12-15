@@ -99,7 +99,7 @@ class _ReturnBookDialogState extends ConsumerState<ReturnBookDialog> {
                     ),
                     const SizedBox(height: 16),
                     DropdownButtonFormField<BookCondition>(
-                      value: _conditionOnReturn,
+                      initialValue: _conditionOnReturn,
                       decoration: const InputDecoration(
                         labelText: 'Condition on Return',
                         border: OutlineInputBorder(),

@@ -72,7 +72,7 @@ class _BookCatalogTabState extends ConsumerState<BookCatalogTab> {
                 children: [
                   Expanded(
                     child: DropdownButtonFormField<BookType?>(
-                      value: _selectedBookType,
+                      initialValue: _selectedBookType,
                       decoration: InputDecoration(
                         labelText: 'Book Type',
                         border: OutlineInputBorder(

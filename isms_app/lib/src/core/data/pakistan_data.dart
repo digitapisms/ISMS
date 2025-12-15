@@ -1,4 +1,5 @@
 /// Pakistan-specific data constants
+library;
 
 class PakistanData {
   static const List<String> provinces = [

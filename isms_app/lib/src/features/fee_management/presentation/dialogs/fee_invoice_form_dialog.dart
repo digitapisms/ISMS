@@ -187,7 +187,7 @@ class _FeeInvoiceFormDialogState extends ConsumerState<FeeInvoiceFormDialog> {
                             border: OutlineInputBorder(),
                             prefixIcon: Icon(Icons.person),
                           ),
-                          value: _selectedStudentId,
+                          initialValue: _selectedStudentId,
                           items: students.map((student) {
                             return DropdownMenuItem(
                               value: student.id,
@@ -219,7 +219,7 @@ class _FeeInvoiceFormDialogState extends ConsumerState<FeeInvoiceFormDialog> {
                           border: OutlineInputBorder(),
                           prefixIcon: Icon(Icons.category),
                         ),
-                        value: _invoiceType,
+                        initialValue: _invoiceType,
                         items: InvoiceType.values.map((type) {
                           return DropdownMenuItem(
                             value: type,

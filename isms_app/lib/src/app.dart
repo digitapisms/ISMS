@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/localization/app_localizations.dart';
 import 'core/localization/locale_provider.dart';
 import 'core/theme/app_theme.dart';
+import 'core/theme/theme_provider.dart';
 import 'features/authentication/application/auth_providers.dart';
 import 'features/authentication/presentation/login_screen.dart';
 import 'features/dashboard/presentation/dashboard_shell.dart';
@@ -14,13 +15,17 @@ class ISMSApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final theme = ref.watch(appThemeProvider);
+    final lightTheme = ref.watch(appThemeProvider);
+    final darkTheme = ref.watch(appDarkThemeProvider);
+    final themeMode = ref.watch(themeModeProvider);
     final authUser = ref.watch(authStateProvider);
     final locale = ref.watch(localeProvider);
 
     return MaterialApp(
       title: 'ILMA Cloud Portal',
-      theme: theme,
+      theme: lightTheme,
+      darkTheme: darkTheme,
+      themeMode: themeMode.toThemeMode(),
       debugShowCheckedModeBanner: false,
       locale: locale,
       supportedLocales: AppLocalizations.supportedLocales,

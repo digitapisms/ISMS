@@ -8,6 +8,13 @@ enum CertificateType {
   transfer,
   merit,
   excellence,
+  experience,
+  educational,
+  academic,
+  sports,
+  cultural,
+  workshop,
+  training,
 }
 
 extension CertificateTypeX on CertificateType {
@@ -31,6 +38,20 @@ extension CertificateTypeX on CertificateType {
         return 'merit';
       case CertificateType.excellence:
         return 'excellence';
+      case CertificateType.experience:
+        return 'experience';
+      case CertificateType.educational:
+        return 'educational';
+      case CertificateType.academic:
+        return 'academic';
+      case CertificateType.sports:
+        return 'sports';
+      case CertificateType.cultural:
+        return 'cultural';
+      case CertificateType.workshop:
+        return 'workshop';
+      case CertificateType.training:
+        return 'training';
     }
   }
 
@@ -54,6 +75,20 @@ extension CertificateTypeX on CertificateType {
         return 'Merit Certificate';
       case CertificateType.excellence:
         return 'Excellence Certificate';
+      case CertificateType.experience:
+        return 'Experience Certificate';
+      case CertificateType.educational:
+        return 'Educational Certificate';
+      case CertificateType.academic:
+        return 'Academic Certificate';
+      case CertificateType.sports:
+        return 'Sports Certificate';
+      case CertificateType.cultural:
+        return 'Cultural Certificate';
+      case CertificateType.workshop:
+        return 'Workshop Certificate';
+      case CertificateType.training:
+        return 'Training Certificate';
     }
   }
 
@@ -77,16 +112,27 @@ extension CertificateTypeX on CertificateType {
         return CertificateType.merit;
       case 'excellence':
         return CertificateType.excellence;
+      case 'experience':
+        return CertificateType.experience;
+      case 'educational':
+        return CertificateType.educational;
+      case 'academic':
+        return CertificateType.academic;
+      case 'sports':
+        return CertificateType.sports;
+      case 'cultural':
+        return CertificateType.cultural;
+      case 'workshop':
+        return CertificateType.workshop;
+      case 'training':
+        return CertificateType.training;
       default:
-        return CertificateType.leaving;
+        return CertificateType.achievement; // Default fallback
     }
   }
 }
 
-enum RecipientType {
-  student,
-  staff,
-}
+enum RecipientType { student, staff }
 
 extension RecipientTypeX on RecipientType {
   String get dbValue {
@@ -119,11 +165,7 @@ extension RecipientTypeX on RecipientType {
   }
 }
 
-enum TemplateType {
-  student,
-  staff,
-  both,
-}
+enum TemplateType { student, staff, both, academic }
 
 extension TemplateTypeX on TemplateType {
   String get dbValue {
@@ -134,6 +176,8 @@ extension TemplateTypeX on TemplateType {
         return 'staff';
       case TemplateType.both:
         return 'both';
+      case TemplateType.academic:
+        return 'academic';
     }
   }
 
@@ -145,6 +189,8 @@ extension TemplateTypeX on TemplateType {
         return 'Staff Only';
       case TemplateType.both:
         return 'Student & Staff';
+      case TemplateType.academic:
+        return 'Academic';
     }
   }
 
@@ -156,19 +202,15 @@ extension TemplateTypeX on TemplateType {
         return TemplateType.staff;
       case 'both':
         return TemplateType.both;
+      case 'academic':
+        return TemplateType.academic;
       default:
         return TemplateType.student;
     }
   }
 }
 
-enum FieldType {
-  text,
-  date,
-  number,
-  image,
-  signature,
-}
+enum FieldType { text, date, number, image, signature }
 
 extension FieldTypeX on FieldType {
   String get dbValue {
@@ -203,4 +245,3 @@ extension FieldTypeX on FieldType {
     }
   }
 }
-

@@ -1,4 +1,5 @@
 import 'certificate_type.dart';
+import 'certificate_data.dart';
 
 class Certificate {
   final String id;
@@ -11,7 +12,7 @@ class Certificate {
   final String recipientName;
   final DateTime issuedDate;
   final String issuedBy;
-  final Map<String, dynamic>? certificateData;
+  final CertificateData? certificateData;
   final String? pdfUrl;
   final String? pdfPath;
   final bool isDownloaded;
@@ -57,14 +58,18 @@ class Certificate {
       schoolId: json['school_id'] as String,
       templateId: json['template_id'] as String,
       certificateNumber: json['certificate_number'] as String,
-      certificateType: CertificateTypeX.fromDb(json['certificate_type'] as String),
+      certificateType: CertificateTypeX.fromDb(
+        json['certificate_type'] as String,
+      ),
       recipientType: RecipientTypeX.fromDb(json['recipient_type'] as String),
       recipientId: json['recipient_id'] as String,
       recipientName: json['recipient_name'] as String,
       issuedDate: DateTime.parse(json['issued_date'] as String),
       issuedBy: json['issued_by'] as String,
       certificateData: json['certificate_data'] != null
-          ? json['certificate_data'] as Map<String, dynamic>
+          ? createCertificateDataFromJson(
+              json['certificate_data'] as Map<String, dynamic>,
+            )
           : null,
       pdfUrl: json['pdf_url'] as String?,
       pdfPath: json['pdf_path'] as String?,
@@ -99,7 +104,7 @@ class Certificate {
       'recipient_name': recipientName,
       'issued_date': issuedDate.toIso8601String(),
       'issued_by': issuedBy,
-      'certificate_data': certificateData,
+      'certificate_data': certificateData?.toJson(),
       'pdf_url': pdfUrl,
       'pdf_path': pdfPath,
       'is_downloaded': isDownloaded,
@@ -115,4 +120,3 @@ class Certificate {
     };
   }
 }
-

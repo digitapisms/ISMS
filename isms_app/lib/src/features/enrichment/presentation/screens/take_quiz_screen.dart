@@ -15,7 +15,7 @@ class TakeQuizScreen extends ConsumerStatefulWidget {
 
 class _TakeQuizScreenState extends ConsumerState<TakeQuizScreen> {
   int _currentQuestionIndex = 0;
-  Map<String, String> _answers = {};
+  final Map<String, String> _answers = {};
   DateTime? _startTime;
   String? _attemptId;
 

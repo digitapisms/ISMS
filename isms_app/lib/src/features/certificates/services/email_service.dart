@@ -28,7 +28,7 @@ class CertificateEmailService {
     // Upload PDF to Supabase Storage
     final fileName = 'certificate_${certificate.certificateNumber}.pdf';
     final filePath = 'certificates/${certificate.schoolId}/$fileName';
-    
+
     await _client.storage
         .from('certificates')
         .uploadBinary(
@@ -41,29 +41,52 @@ class CertificateEmailService {
         );
 
     // Get public URL
-    final pdfUrl = _client.storage
+    final pdfUrl = _client.storage.from('certificates').getPublicUrl(filePath);
+
+    // Update certificate record with pdf_url
+    await _client
         .from('certificates')
-        .getPublicUrl(filePath);
+        .update({
+          'pdf_url': pdfUrl,
+          'pdf_path': filePath,
+          'updated_at': DateTime.now().toIso8601String(),
+        })
+        .eq('id', certificate.id)
+        .eq('school_id', certificate.schoolId);
 
-    // Update certificate with PDF URL
-    // TODO: Update certificate record with pdf_url
-
-    // Call Edge Function to send email
+    // Try to call Edge Function to send email
     try {
       await _client.functions.invoke(
         'send-certificate-email',
         body: {
           'to': recipientEmail,
-          'subject': subject ?? 'Your Certificate - ${certificate.certificateNumber}',
+          'subject':
+              subject ?? 'Your Certificate - \${certificate.certificateNumber}',
           'message': message ?? 'Please find your certificate attached.',
           'certificate_number': certificate.certificateNumber,
           'pdf_url': pdfUrl,
         },
       );
     } catch (e) {
-      // If Edge Function doesn't exist, log error
-      print('Email service not configured: $e');
-      throw Exception('Email service is not available. Please configure email settings.');
+      // If Edge Function doesn't exist, fall back to notifications table
+      print(
+        'Edge Function not available, falling back to notifications table: \$e',
+      );
+
+      await _client.from('notifications').insert({
+        'type': 'certificate_email',
+        'recipient_email': recipientEmail,
+        'subject':
+            subject ?? 'Your Certificate - \${certificate.certificateNumber}',
+        'body': message ?? 'Please find your certificate attached.',
+        'status': 'pending',
+        'metadata': {
+          'certificate_id': certificate.id,
+          'certificate_number': certificate.certificateNumber,
+          'pdf_url': pdfUrl,
+          'template_id': template.id,
+        },
+      });
     }
   }
 
@@ -71,7 +94,8 @@ class CertificateEmailService {
   Future<Map<String, dynamic>> sendBulkCertificates({
     required List<Certificate> certificates,
     required CertificateTemplate template,
-    required Map<String, Map<String, String>> variableValuesMap, // certificateId -> variableValues
+    required Map<String, Map<String, String>>
+    variableValuesMap, // certificateId -> variableValues
   }) async {
     int successCount = 0;
     int failCount = 0;
@@ -81,7 +105,7 @@ class CertificateEmailService {
       try {
         final variableValues = variableValuesMap[certificate.id] ?? {};
         final recipientEmail = variableValues['email'] ?? '';
-        
+
         if (recipientEmail.isEmpty) {
           failCount++;
           errors.add('${certificate.recipientName}: No email address');
@@ -108,4 +132,3 @@ class CertificateEmailService {
     };
   }
 }
-

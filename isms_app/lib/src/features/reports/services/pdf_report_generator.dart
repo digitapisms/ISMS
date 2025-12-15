@@ -281,7 +281,7 @@ class PDFReportGenerator {
             absent.toString(),
             '$rate%',
           ]);
-        }).toList(),
+        }),
       ],
     );
   }
@@ -323,7 +323,7 @@ class PDFReportGenerator {
             transaction['type']?.toString() ?? 'N/A',
             _formatCurrency(transaction['amount'] ?? 0),
           ]);
-        }).toList(),
+        }),
       ],
     );
   }

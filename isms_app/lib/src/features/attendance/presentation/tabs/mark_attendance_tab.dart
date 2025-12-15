@@ -26,7 +26,7 @@ class _MarkAttendanceTabState extends ConsumerState<MarkAttendanceTab> {
         // Filters
         Container(
           padding: const EdgeInsets.all(16),
-          color: Theme.of(context).colorScheme.surfaceVariant,
+          color: Theme.of(context).colorScheme.surfaceContainerHighest,
           child: Column(
             children: [
               // Date Picker
@@ -69,7 +69,7 @@ class _MarkAttendanceTabState extends ConsumerState<MarkAttendanceTab> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       DropdownButtonFormField<int>(
-                        value: _selectedClassId,
+                        initialValue: _selectedClassId,
                         decoration: const InputDecoration(
                           labelText: 'Class *',
                           border: OutlineInputBorder(),
@@ -158,7 +158,7 @@ class _SectionSelector extends ConsumerWidget {
     return sectionsAsync.when(
       data: (sections) {
         return DropdownButtonFormField<int>(
-          value: selectedSectionId,
+          initialValue: selectedSectionId,
           decoration: const InputDecoration(
             labelText: 'Section (Optional)',
             border: OutlineInputBorder(),

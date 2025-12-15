@@ -28,7 +28,7 @@ class _CheckInDialogState extends ConsumerState<CheckInDialog> {
   HostType _hostType = HostType.staff;
   String? _selectedHostId;
   String? _selectedStudentId;
-  String _entryGate = 'Main Gate';
+  final String _entryGate = 'Main Gate';
   int _numberOfVisitors = 1;
   bool _isEscortRequired = false;
 
@@ -187,7 +187,7 @@ class _CheckInDialogState extends ConsumerState<CheckInDialog> {
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<VisitorType>(
-                  value: _visitorType,
+                  initialValue: _visitorType,
                   decoration: const InputDecoration(
                     labelText: 'Visitor Type',
                     border: OutlineInputBorder(),
@@ -206,7 +206,7 @@ class _CheckInDialogState extends ConsumerState<CheckInDialog> {
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<VisitPurpose>(
-                  value: _visitPurpose,
+                  initialValue: _visitPurpose,
                   decoration: const InputDecoration(
                     labelText: 'Visit Purpose *',
                     border: OutlineInputBorder(),
@@ -234,7 +234,7 @@ class _CheckInDialogState extends ConsumerState<CheckInDialog> {
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<HostType>(
-                  value: _hostType,
+                  initialValue: _hostType,
                   decoration: const InputDecoration(
                     labelText: 'Host Type *',
                     border: OutlineInputBorder(),

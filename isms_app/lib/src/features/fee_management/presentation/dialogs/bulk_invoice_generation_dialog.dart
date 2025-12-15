@@ -164,7 +164,7 @@ class _BulkInvoiceGenerationDialogState
                     border: OutlineInputBorder(),
                     prefixIcon: Icon(Icons.account_balance_wallet),
                   ),
-                  value: _selectedStructure,
+                  initialValue: _selectedStructure,
                   items: structures.where((s) => s.isActive).map((structure) {
                     return DropdownMenuItem(
                       value: structure,
@@ -191,7 +191,7 @@ class _BulkInvoiceGenerationDialogState
                     border: OutlineInputBorder(),
                     prefixIcon: Icon(Icons.class_),
                   ),
-                  value: _selectedClassId,
+                  initialValue: _selectedClassId,
                   items: [
                     const DropdownMenuItem<int>(
                       value: null,

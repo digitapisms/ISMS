@@ -181,7 +181,7 @@ class _EventFormDialogState extends ConsumerState<EventFormDialog> {
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<EventType>(
-                  value: _eventType,
+                  initialValue: _eventType,
                   decoration: InputDecoration(
                     labelText: 'Event Type *',
                     border: OutlineInputBorder(
@@ -323,7 +323,7 @@ class _EventFormDialogState extends ConsumerState<EventFormDialog> {
                 ],
                 const SizedBox(height: 16),
                 DropdownButtonFormField<EventStatus>(
-                  value: _status,
+                  initialValue: _status,
                   decoration: InputDecoration(
                     labelText: 'Status',
                     border: OutlineInputBorder(

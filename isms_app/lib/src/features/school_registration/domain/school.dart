@@ -46,6 +46,7 @@ class School extends Equatable {
     this.totalStudentsCapacity,
     this.cnicNumber,
     this.ntnNumber,
+    this.institutionTypeId,
   });
 
   final String id;
@@ -79,7 +80,8 @@ class School extends Equatable {
   final String? locationAddress;
   final String? googlePlaceId;
   // Registration type fields
-  final String? registrationType; // private, public, semi_private, madrassa, international
+  final String?
+  registrationType; // private, public, semi_private, madrassa, international
   final String? registrationNumber;
   final String? registrationBoard; // FBISE, Punjab Board, Sindh Board, etc.
   // Pakistan-specific location fields
@@ -93,13 +95,17 @@ class School extends Equatable {
   final String? faxNumber;
   // Education fields
   final String? mediumOfInstruction; // english, urdu, bilingual
-  final List<String>? educationLevels; // primary, middle, secondary, higher_secondary
+  final List<String>?
+  educationLevels; // primary, middle, secondary, higher_secondary
   final String? genderType; // boys, girls, co_education
   final int? establishedYear;
   final int? totalStudentsCapacity;
   // Verification fields
   final String? cnicNumber; // Principal's CNIC
   final String? ntnNumber; // National Tax Number
+
+  // Institution personalization
+  final String? institutionTypeId; // Foreign key to institution_types
 
   factory School.fromMap(Map<String, dynamic> map) {
     return School(
@@ -157,6 +163,7 @@ class School extends Equatable {
       totalStudentsCapacity: map['total_students_capacity'] as int?,
       cnicNumber: map['cnic_number'] as String?,
       ntnNumber: map['ntn_number'] as String?,
+      institutionTypeId: map['institution_type_id'] as String?,
     );
   }
 
@@ -206,6 +213,7 @@ class School extends Equatable {
       'total_students_capacity': totalStudentsCapacity,
       'cnic_number': cnicNumber,
       'ntn_number': ntnNumber,
+      'institution_type_id': institutionTypeId,
     };
   }
 
@@ -255,5 +263,6 @@ class School extends Equatable {
     totalStudentsCapacity,
     cnicNumber,
     ntnNumber,
+    institutionTypeId,
   ];
 }

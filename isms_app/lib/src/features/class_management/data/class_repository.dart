@@ -41,8 +41,7 @@ class ClassRepository {
         : baseQuery;
 
     final response = await filteredQuery
-        .order('level', ascending: true)
-        .order('name');
+        .order('name', ascending: true);
     final data = response;
 
     // Get section counts separately
@@ -96,8 +95,8 @@ class ClassRepository {
           'school_id': schoolId,
           'name': name,
           'code': code,
-          'level': level,
-          'description': description,
+          // 'level': level, // Column doesn't exist in database
+          // 'description': description, // Column doesn't exist in database
           'is_active': isActive,
         })
         .select()
@@ -119,8 +118,8 @@ class ClassRepository {
     final updates = <String, dynamic>{};
     if (name != null) updates['name'] = name;
     if (code != null) updates['code'] = code;
-    if (level != null) updates['level'] = level;
-    if (description != null) updates['description'] = description;
+    // if (level != null) updates['level'] = level; // Column doesn't exist in database
+    // if (description != null) updates['description'] = description; // Column doesn't exist in database
     if (isActive != null) updates['is_active'] = isActive;
 
     final response = await _client

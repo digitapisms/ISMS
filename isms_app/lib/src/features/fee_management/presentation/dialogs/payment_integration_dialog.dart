@@ -5,6 +5,8 @@ import 'package:intl/intl.dart';
 import '../../application/fee_providers.dart';
 import '../../domain/fee_invoice.dart';
 import '../../../school_registration/application/school_providers.dart';
+import '../../services/fee_payment_gateway_service.dart';
+import '../../../../payments/services/payment_gateway_service.dart';
 
 class PaymentIntegrationDialog extends ConsumerStatefulWidget {
   const PaymentIntegrationDialog({super.key, required this.invoice});
@@ -28,6 +30,9 @@ class _PaymentIntegrationDialogState
   String? _selectedTransactionId;
   String? _selectedCashReceiptId;
   bool _isSaving = false;
+  bool _isProcessingOnline = false;
+  String? _onlinePaymentIntentId;
+  PaymentProviderType? _selectedOnlineProvider;
 
   @override
   void initState() {
@@ -44,6 +49,136 @@ class _PaymentIntegrationDialogState
     _referenceController.dispose();
     _notesController.dispose();
     super.dispose();
+  }
+
+  /// Process online payment through gateway
+  Future<void> _processOnlinePayment() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    final amount = double.tryParse(_amountController.text.trim());
+    if (amount == null || amount <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter a valid amount')),
+      );
+      return;
+    }
+
+    if (_selectedOnlineProvider == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select a payment provider')),
+      );
+      return;
+    }
+
+    setState(() {
+      _isProcessingOnline = true;
+    });
+
+    try {
+      final paymentService = ref.read(feePaymentGatewayServiceProvider);
+
+      final result = await paymentService.processOnlinePayment(
+        invoice: widget.invoice,
+        provider: _selectedOnlineProvider!,
+        amount: amount,
+        customerEmail: 'student@example.com', // TODO: Get actual student email
+        customerPhone: '03001234567', // TODO: Get actual student phone
+        metadata: {
+          'invoice_number': widget.invoice.invoiceNumber,
+          'student_name': 'Student Name', // TODO: Get actual student name
+        },
+      );
+
+      if (result['success'] == true) {
+        setState(() {
+          _onlinePaymentIntentId = result['payment_intent']?['id']?.toString();
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Payment intent created with ${paymentService.getProviderDisplayName(_selectedOnlineProvider!)}',
+            ),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Payment failed: ${result['error']}'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: $e'),
+          backgroundColor: Theme.of(context).colorScheme.error,
+        ),
+      );
+    } finally {
+      setState(() {
+        _isProcessingOnline = false;
+      });
+    }
+  }
+
+  /// Confirm and complete online payment
+  Future<void> _confirmOnlinePayment() async {
+    if (_onlinePaymentIntentId == null || _selectedOnlineProvider == null) {
+      return;
+    }
+
+    setState(() {
+      _isProcessingOnline = true;
+    });
+
+    try {
+      final amount = double.tryParse(_amountController.text.trim()) ?? 0;
+      final paymentService = ref.read(feePaymentGatewayServiceProvider);
+
+      final result = await paymentService.confirmPayment(
+        paymentIntentId: _onlinePaymentIntentId!,
+        provider: _selectedOnlineProvider!,
+        paymentMethodId: 'pm_card_visa', // TODO: Get actual payment method ID
+        invoice: widget.invoice,
+        amount: amount,
+      );
+
+      if (result['success'] == true && result['recorded'] == true) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Payment completed and recorded successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+
+        // Refresh data and close dialog
+        ref.invalidate(feeInvoicesProvider);
+        ref.invalidate(studentFeeInvoicesProvider(widget.invoice.studentId));
+        ref.invalidate(invoicePaymentsProvider(widget.invoice.id));
+        Navigator.of(context).pop(true);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Payment confirmation failed: ${result['error']}'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: $e'),
+          backgroundColor: Theme.of(context).colorScheme.error,
+        ),
+      );
+    } finally {
+      setState(() {
+        _isProcessingOnline = false;
+      });
+    }
   }
 
   Future<void> _save() async {
@@ -185,7 +320,7 @@ class _PaymentIntegrationDialogState
                           border: OutlineInputBorder(),
                           prefixIcon: Icon(Icons.payment),
                         ),
-                        value: _paymentMethod,
+                        initialValue: _paymentMethod,
                         items: const [
                           DropdownMenuItem(value: 'cash', child: Text('Cash')),
                           DropdownMenuItem(
@@ -204,6 +339,14 @@ class _PaymentIntegrationDialogState
                             value: 'card',
                             child: Text('Credit/Debit Card'),
                           ),
+                          DropdownMenuItem(
+                            value: 'online_stripe',
+                            child: Text('Stripe (Online)'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'online_paypal',
+                            child: Text('PayPal (Online)'),
+                          ),
                         ],
                         onChanged: (value) {
                           if (value != null) {
@@ -211,10 +354,92 @@ class _PaymentIntegrationDialogState
                               _paymentMethod = value;
                               _selectedTransactionId = null;
                               _selectedCashReceiptId = null;
+
+                              // Set online provider based on selection
+                              if (value == 'online_stripe') {
+                                _selectedOnlineProvider =
+                                    PaymentProviderType.stripe;
+                              } else if (value == 'online_paypal') {
+                                _selectedOnlineProvider =
+                                    PaymentProviderType.paypal;
+                              } else {
+                                _selectedOnlineProvider = null;
+                              }
                             });
                           }
                         },
                       ),
+                      const SizedBox(height: 16),
+
+                      // Online Payment Section
+                      if (_paymentMethod.startsWith('online_'))
+                        Card(
+                          color: Colors.blue[50],
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Online Payment Processing',
+                                  style: Theme.of(context).textTheme.titleSmall
+                                      ?.copyWith(color: Colors.blue[800]),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  'Process payment through ${_selectedOnlineProvider != null ? ref.read(feePaymentGatewayServiceProvider).getProviderDisplayName(_selectedOnlineProvider!) : 'selected provider'}\n',
+                                  style: const TextStyle(fontSize: 14),
+                                ),
+                                const SizedBox(height: 12),
+                                if (_onlinePaymentIntentId == null)
+                                  ElevatedButton(
+                                    onPressed: _isProcessingOnline
+                                        ? null
+                                        : _processOnlinePayment,
+                                    child: _isProcessingOnline
+                                        ? const SizedBox(
+                                            width: 16,
+                                            height: 16,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                            ),
+                                          )
+                                        : const Text('Create Payment Intent'),
+                                  )
+                                else
+                                  Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Payment Intent: ${_onlinePaymentIntentId!.substring(0, 8)}...',
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          fontFamily: 'monospace',
+                                        ),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      ElevatedButton(
+                                        onPressed: _isProcessingOnline
+                                            ? null
+                                            : _confirmOnlinePayment,
+                                        child: _isProcessingOnline
+                                            ? const SizedBox(
+                                                width: 16,
+                                                height: 16,
+                                                child:
+                                                    CircularProgressIndicator(
+                                                      strokeWidth: 2,
+                                                    ),
+                                              )
+                                            : const Text('Confirm Payment'),
+                                      ),
+                                    ],
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ),
                       const SizedBox(height: 16),
                       // Amount
                       TextFormField(

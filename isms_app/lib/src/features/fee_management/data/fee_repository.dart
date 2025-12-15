@@ -87,7 +87,7 @@ class FeeRepository {
         .select()
         .single();
 
-    return FeeCategory.fromMap(response as Map<String, dynamic>);
+    return FeeCategory.fromMap(response);
   }
 
   Future<FeeCategory> updateFeeCategory({
@@ -112,7 +112,7 @@ class FeeRepository {
         .select()
         .single();
 
-    return FeeCategory.fromMap(response as Map<String, dynamic>);
+    return FeeCategory.fromMap(response);
   }
 
   // ==================== Fee Structures ====================
@@ -199,7 +199,7 @@ class FeeRepository {
         .select()
         .single();
 
-    return FeeStructure.fromMap(response as Map<String, dynamic>);
+    return FeeStructure.fromMap(response);
   }
 
   Future<FeeStructure> updateFeeStructure({
@@ -242,7 +242,7 @@ class FeeRepository {
         .select()
         .single();
 
-    return FeeStructure.fromMap(response as Map<String, dynamic>);
+    return FeeStructure.fromMap(response);
   }
 
   // ==================== Fee Invoices ====================
@@ -301,7 +301,7 @@ class FeeRepository {
         .select()
         .single();
 
-    final invoice = FeeInvoice.fromMap(invoiceResponse as Map<String, dynamic>);
+    final invoice = FeeInvoice.fromMap(invoiceResponse);
 
     // Create invoice items
     for (final item in items) {

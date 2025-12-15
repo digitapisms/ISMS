@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 import '../../../school_registration/domain/school.dart';
 import '../../../subscription/application/subscription_providers.dart';
+import '../../../../support/presentation/screens/support_contact_form.dart';
 
 class SubscriptionTab extends ConsumerWidget {
   const SubscriptionTab({super.key, required this.school});
@@ -175,11 +176,14 @@ class SubscriptionTab extends ConsumerWidget {
                         const SizedBox(height: 12),
                         FilledButton(
                           onPressed: () {
-                            // TODO: Open support/contact form
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text(
-                                  'Contact support to upgrade your plan',
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const SupportContactForm(
+                                  initialSubject:
+                                      'Subscription Upgrade Request',
+                                  initialDescription:
+                                      'I would like to upgrade my subscription plan. Please provide more information about the available options and pricing.',
                                 ),
                               ),
                             );

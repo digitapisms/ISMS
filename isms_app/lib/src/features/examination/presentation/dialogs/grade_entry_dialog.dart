@@ -194,7 +194,7 @@ class _GradeEntryDialogState extends ConsumerState<GradeEntryDialog> {
                           border: OutlineInputBorder(),
                           prefixIcon: Icon(Icons.class_),
                         ),
-                        value: _selectedClassId,
+                        initialValue: _selectedClassId,
                         items: classes.map((cls) {
                           return DropdownMenuItem(
                             value: cls.id,
@@ -225,7 +225,7 @@ class _GradeEntryDialogState extends ConsumerState<GradeEntryDialog> {
                           border: OutlineInputBorder(),
                           prefixIcon: Icon(Icons.subject),
                         ),
-                        value: _selectedSubjectId,
+                        initialValue: _selectedSubjectId,
                         items: subjects.map((subject) {
                           return DropdownMenuItem(
                             value: subject.id,

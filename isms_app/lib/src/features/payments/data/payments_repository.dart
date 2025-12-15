@@ -5,6 +5,7 @@ import '../domain/cash_fee_receipt.dart';
 import '../domain/payment_account.dart';
 import '../domain/payment_provider.dart';
 import '../domain/payment_transaction.dart';
+import '../services/payment_gateway_service.dart';
 
 class PaymentsRepository {
   SupabaseClient get _client => SupabaseManager.client;
@@ -141,5 +142,201 @@ class PaymentsRepository {
       'notes': notes,
       'student_id': studentId,
     });
+  }
+
+  /// Create a payment transaction
+  Future<PaymentTransaction> createPaymentTransaction({
+    required String schoolId,
+    required double amount,
+    required String currency,
+    required String providerKey,
+    String? accountId,
+    String? payerName,
+    String? payerEmail,
+    String? payerPhone,
+    String? referenceCode,
+    Map<String, dynamic>? metadata,
+  }) async {
+    final response = await _client.from('payment_transactions').insert({
+      'school_id': schoolId,
+      'amount': amount,
+      'currency': currency,
+      'provider_key': providerKey,
+      'account_id': accountId,
+      'payer_name': payerName,
+      'payer_email': payerEmail,
+      'payer_phone': payerPhone,
+      'reference_code': referenceCode,
+      'status': 'pending',
+      'initiated_at': DateTime.now().toIso8601String(),
+      'metadata': metadata ?? {},
+    }).select();
+
+    if (response.isEmpty) {
+      throw Exception('Failed to create payment transaction');
+    }
+
+    return PaymentTransaction.fromMap(response.first);
+  }
+
+  /// Update payment transaction status
+  Future<void> updateTransactionStatus({
+    required String transactionId,
+    required String status,
+    String? externalReference,
+    String? errorCode,
+    String? errorMessage,
+    Map<String, dynamic>? rawResponse,
+  }) async {
+    final updateData = {
+      'status': status,
+      'completed_at': DateTime.now().toIso8601String(),
+      if (externalReference != null) 'external_reference': externalReference,
+      if (errorCode != null) 'error_code': errorCode,
+      if (errorMessage != null) 'error_message': errorMessage,
+      if (rawResponse != null) 'raw_response': rawResponse,
+    };
+
+    await _client
+        .from('payment_transactions')
+        .update(updateData)
+        .eq('id', transactionId);
+  }
+
+  /// Process payment through gateway
+  Future<Map<String, dynamic>> processPayment({
+    required String schoolId,
+    required double amount,
+    required String currency,
+    required String providerKey,
+    required Map<String, dynamic> paymentData,
+    String? payerName,
+    String? payerEmail,
+    String? payerPhone,
+  }) async {
+    // Create transaction record
+    final transaction = await createPaymentTransaction(
+      schoolId: schoolId,
+      amount: amount,
+      currency: currency,
+      providerKey: providerKey,
+      payerName: payerName,
+      payerEmail: payerEmail,
+      payerPhone: payerPhone,
+      referenceCode: paymentData['reference'],
+    );
+
+    try {
+      // Initialize payment gateway
+      final providerType = PaymentProviderType.values.firstWhere(
+        (type) => type.name == providerKey,
+        orElse: () => PaymentProviderType.cash,
+      );
+
+      final gateway = PaymentGatewayService(
+        provider: providerType,
+        config: PaymentGatewayConfig.fromEnv(providerType),
+      );
+
+      // Create payment intent
+      final intentResult = await gateway.createPaymentIntent(
+        amount: amount,
+        currency: currency,
+        reference: transaction.id,
+        customerEmail: payerEmail,
+        customerPhone: payerPhone,
+        metadata: {
+          'school_id': schoolId,
+          'transaction_id': transaction.id,
+          'payer_name': payerName,
+        },
+      );
+
+      // Update transaction with gateway reference
+      await updateTransactionStatus(
+        transactionId: transaction.id,
+        status: 'processing',
+        externalReference: intentResult['id'],
+        rawResponse: intentResult,
+      );
+
+      return {
+        'success': true,
+        'transaction_id': transaction.id,
+        'gateway_reference': intentResult['id'],
+        'client_secret': intentResult['client_secret'],
+        'next_action': intentResult['next_action'],
+      };
+    } catch (e) {
+      // Update transaction as failed
+      await updateTransactionStatus(
+        transactionId: transaction.id,
+        status: 'failed',
+        errorMessage: e.toString(),
+      );
+
+      rethrow;
+    }
+  }
+
+  /// Confirm payment completion
+  Future<void> confirmPayment({
+    required String transactionId,
+    required String paymentMethodId,
+    Map<String, dynamic>? confirmationData,
+  }) async {
+    final transaction = await _client
+        .from('payment_transactions')
+        .select()
+        .eq('id', transactionId)
+        .maybeSingle();
+
+    if (transaction == null) {
+      throw Exception('Transaction not found');
+    }
+
+    final transactionData = PaymentTransaction.fromMap(
+      Map<String, dynamic>.from(transaction),
+    );
+
+    final providerType = PaymentProviderType.values.firstWhere(
+      (type) => type.name == transactionData.providerKey,
+      orElse: () => PaymentProviderType.cash,
+    );
+
+    final gateway = PaymentGatewayService(
+      provider: providerType,
+      config: PaymentGatewayConfig.fromEnv(providerType),
+    );
+
+    try {
+      final confirmationResult = await gateway.confirmPayment(
+        paymentIntentId: transactionData.externalReference!,
+        paymentMethodId: paymentMethodId,
+        confirmationData: confirmationData,
+      );
+
+      if (confirmationResult['status'] == 'succeeded') {
+        await updateTransactionStatus(
+          transactionId: transactionId,
+          status: 'succeeded',
+          rawResponse: confirmationResult,
+        );
+      } else {
+        await updateTransactionStatus(
+          transactionId: transactionId,
+          status: 'failed',
+          errorMessage: 'Payment confirmation failed',
+          rawResponse: confirmationResult,
+        );
+      }
+    } catch (e) {
+      await updateTransactionStatus(
+        transactionId: transactionId,
+        status: 'failed',
+        errorMessage: e.toString(),
+      );
+      rethrow;
+    }
   }
 }

@@ -1,20 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../application/certificates_providers.dart';
+import '../../../../core/auth/auth_provider.dart';
+import '../../../../core/error/error_dialog.dart';
+import '../../../../core/utils/string_utils.dart';
+import '../../../student_management/domain/student.dart';
+import '../../../student_management/presentation/providers/students_provider.dart';
 import '../../domain/certificate.dart';
 import '../../domain/certificate_template.dart';
 import '../../domain/certificate_type.dart';
-import '../../../authentication/application/auth_providers.dart';
-import '../../../student_management/application/student_providers.dart';
+import '../../domain/certificate_data.dart';
+import '../providers/certificates_provider.dart';
 
 class BulkGenerateDialog extends ConsumerStatefulWidget {
   final CertificateTemplate template;
 
-  const BulkGenerateDialog({
-    super.key,
-    required this.template,
-  });
+  const BulkGenerateDialog({super.key, required this.template});
 
   @override
   ConsumerState<BulkGenerateDialog> createState() => _BulkGenerateDialogState();
@@ -40,9 +41,9 @@ class _BulkGenerateDialogState extends ConsumerState<BulkGenerateDialog> {
               children: [
                 Text(
                   'Bulk Generate Certificates',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
                 ),
                 IconButton(
                   icon: const Icon(Icons.close),
@@ -60,9 +61,7 @@ class _BulkGenerateDialogState extends ConsumerState<BulkGenerateDialog> {
                   if (_selectAll) {
                     studentsAsync.whenData((students) {
                       _selectedRecipients.clear();
-                      _selectedRecipients.addAll(
-                        students.map((s) => s.id),
-                      );
+                      _selectedRecipients.addAll(students.map((s) => s.id));
                     });
                   } else {
                     _selectedRecipients.clear();
@@ -75,17 +74,17 @@ class _BulkGenerateDialogState extends ConsumerState<BulkGenerateDialog> {
               child: studentsAsync.when(
                 data: (students) {
                   if (students.isEmpty) {
-                    return const Center(
-                      child: Text('No students available'),
-                    );
+                    return const Center(child: Text('No students available'));
                   }
 
                   return ListView.builder(
                     itemCount: students.length,
                     itemBuilder: (context, index) {
                       final student = students[index];
-                      final isSelected = _selectedRecipients.contains(student.id);
-                      
+                      final isSelected = _selectedRecipients.contains(
+                        student.id,
+                      );
+
                       return CheckboxListTile(
                         title: Text(student.fullName),
                         subtitle: Text('Admission: ${student.admissionNo}'),
@@ -105,9 +104,7 @@ class _BulkGenerateDialogState extends ConsumerState<BulkGenerateDialog> {
                   );
                 },
                 loading: () => const Center(child: CircularProgressIndicator()),
-                error: (error, stack) => Center(
-                  child: Text('Error: $error'),
-                ),
+                error: (error, stack) => Center(child: Text('Error: $error')),
               ),
             ),
             const Divider(),
@@ -152,7 +149,7 @@ class _BulkGenerateDialogState extends ConsumerState<BulkGenerateDialog> {
     if (currentUser?.id == null) return;
 
     final studentsAsync = ref.read(studentsProvider);
-    final students = await studentsAsync.value;
+    final students = studentsAsync.value;
     if (students == null) return;
 
     int successCount = 0;
@@ -160,8 +157,14 @@ class _BulkGenerateDialogState extends ConsumerState<BulkGenerateDialog> {
 
     for (final studentId in _selectedRecipients) {
       final student = students.firstWhere((s) => s.id == studentId);
-      
+
       try {
+        // Create appropriate certificate data based on template type
+        final certificateData = _createCertificateData(
+          widget.template.certificateType,
+          student,
+        );
+
         final certificate = Certificate(
           id: '',
           schoolId: repo.schoolId ?? '',
@@ -173,12 +176,7 @@ class _BulkGenerateDialogState extends ConsumerState<BulkGenerateDialog> {
           recipientName: student.fullName,
           issuedDate: DateTime.now(),
           issuedBy: currentUser!.id,
-          certificateData: {
-            'student_name': student.fullName,
-            'admission_number': student.admissionNo,
-            'class': student.classId?.toString() ?? '',
-            'section': student.sectionId?.toString() ?? '',
-          },
+          certificateData: certificateData,
           createdAt: DateTime.now(),
           updatedAt: DateTime.now(),
         );
@@ -195,13 +193,53 @@ class _BulkGenerateDialogState extends ConsumerState<BulkGenerateDialog> {
       ref.invalidate(certificatesProvider);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            'Generated: $successCount, Failed: $failCount',
-          ),
+          content: Text('Generated: $successCount, Failed: $failCount'),
           duration: const Duration(seconds: 3),
         ),
       );
     }
   }
-}
 
+  CertificateData? _createCertificateData(
+    CertificateType certificateType,
+    Student student,
+  ) {
+    switch (certificateType) {
+      case CertificateType.leaving:
+        return EducationalCertificateData(
+          courseName: student.classId?.toString() ?? 'General Course',
+          completionDate: DateTime.now(),
+          grade: 'A',
+          percentage: '85%',
+          instituteName: 'School Name',
+          boardUniversity: 'Education Board',
+        );
+      case CertificateType.achievement:
+        return AcademicCertificateData(
+          subject: 'General Achievement',
+          grade: 'A',
+          percentage: '85%',
+          gradePoints: '4.0',
+          cgpa: '3.8',
+          sgpa: '3.9',
+          rankInClass: '1',
+          isPassWithDistinction: true,
+        );
+      case CertificateType.participation:
+        return ExperienceCertificateData(
+          position: 'Participant',
+          department: 'General',
+          employmentStartDate: DateTime.now(),
+          employmentEndDate: DateTime.now(),
+          responsibilities: 'Active participation',
+          achievements: 'Excellent performance',
+          supervisorName: 'Teacher',
+          supervisorPosition: 'Supervisor',
+          reasonForLeaving: 'Course completion',
+          isEligibleForRehire: true,
+        );
+      default:
+        return null;
+    }
+  }
+}

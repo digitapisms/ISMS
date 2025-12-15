@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../authentication/application/auth_providers.dart';
 import 'tabs/children_tab.dart';
 import 'tabs/attendance_tab.dart';
 import 'tabs/fees_tab.dart';

@@ -1,5 +1,5 @@
-import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/network/supabase_client.dart';
@@ -440,7 +440,20 @@ class SchoolRepository {
     required String schoolId,
     required String status,
   }) async {
-    await _client.from('schools').update({'status': status}).eq('id', schoolId);
+    try {
+      final response = await _client
+          .from('schools')
+          .update({'status': status})
+          .eq('id', schoolId)
+          .select();
+      
+      if (response.isEmpty) {
+        throw Exception('No school found with id: $schoolId');
+      }
+    } catch (e) {
+      debugPrint('Error updating school status: $e');
+      rethrow;
+    }
   }
 
   /// Update school subscription

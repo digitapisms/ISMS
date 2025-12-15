@@ -64,7 +64,7 @@ class _SchoolRegistrationScreenState
   String? _selectedProvince;
   String? _selectedDistrict;
   String? _mediumOfInstruction;
-  List<String> _selectedEducationLevels = [];
+  final List<String> _selectedEducationLevels = [];
   String? _genderType;
   
   // Location fields
@@ -701,7 +701,7 @@ class _SchoolRegistrationScreenState
           ),
           const SizedBox(height: 8),
           DropdownButtonFormField<String>(
-            value: _registrationType,
+            initialValue: _registrationType,
             decoration: const InputDecoration(
               labelText: 'Select Registration Type',
               prefixIcon: Icon(Icons.badge),
@@ -734,7 +734,7 @@ class _SchoolRegistrationScreenState
               const SizedBox(width: 16),
               Expanded(
                 child: DropdownButtonFormField<String>(
-                  value: _registrationBoard,
+                  initialValue: _registrationBoard,
                   decoration: const InputDecoration(
                     labelText: 'Registration Board',
                     prefixIcon: Icon(Icons.school),
@@ -754,7 +754,7 @@ class _SchoolRegistrationScreenState
 
           // Province, District, Tehsil (Pakistan-specific)
           DropdownButtonFormField<String>(
-            value: _selectedProvince,
+            initialValue: _selectedProvince,
             decoration: const InputDecoration(
               labelText: 'Province *',
               prefixIcon: Icon(Icons.map),
@@ -778,7 +778,7 @@ class _SchoolRegistrationScreenState
             children: [
               Expanded(
                 child: DropdownButtonFormField<String>(
-                  value: _selectedDistrict,
+                  initialValue: _selectedDistrict,
                   decoration: const InputDecoration(
                     labelText: 'District',
                     prefixIcon: Icon(Icons.location_city),
@@ -812,7 +812,7 @@ class _SchoolRegistrationScreenState
 
           // Medium of Instruction
           DropdownButtonFormField<String>(
-            value: _mediumOfInstruction,
+            initialValue: _mediumOfInstruction,
             decoration: const InputDecoration(
               labelText: 'Medium of Instruction',
               prefixIcon: Icon(Icons.language),
@@ -857,7 +857,7 @@ class _SchoolRegistrationScreenState
 
           // Gender Type
           DropdownButtonFormField<String>(
-            value: _genderType,
+            initialValue: _genderType,
             decoration: const InputDecoration(
               labelText: 'Gender Type',
               prefixIcon: Icon(Icons.people),

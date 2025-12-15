@@ -122,17 +122,15 @@ class _BulkImportScreenState extends ConsumerState<BulkImportScreen> {
             : null,
         'status': student['status'] ?? 'active',
         'email': student['email'] ?? student['email_address'] ?? '',
-        'gender': student['gender'] ?? student['sex'] ?? null,
+        'gender': student['gender'] ?? student['sex'],
         'dob':
             student['dob'] ??
             student['date_of_birth'] ??
-            student['birth_date'] ??
-            null,
+            student['birth_date'],
         'blood_group':
             student['blood_group'] ??
             student['bloodgroup'] ??
-            student['blood'] ??
-            null,
+            student['blood'],
       });
     }
 

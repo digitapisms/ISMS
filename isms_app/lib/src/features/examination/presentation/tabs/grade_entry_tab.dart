@@ -38,9 +38,8 @@ class _GradeEntryTabState extends ConsumerState<GradeEntryTab> {
               if (_selectedExamId != null)
                 ElevatedButton.icon(
                   onPressed: () async {
-                    final exam = await ref.read(
-                      examProvider(_selectedExamId!).future,
-                    );
+                    final examAsync = ref.read(examProvider(_selectedExamId!));
+                    final exam = await examAsync.future;
                     final result = await showDialog(
                       context: context,
                       builder: (_) => GradeEntryDialog(exam: exam),
@@ -80,7 +79,7 @@ class _GradeEntryTabState extends ConsumerState<GradeEntryTab> {
                       border: OutlineInputBorder(),
                       prefixIcon: Icon(Icons.quiz),
                     ),
-                    value: _selectedExamId,
+                    initialValue: _selectedExamId,
                     items: exams.map((exam) {
                       return DropdownMenuItem(
                         value: exam.id,

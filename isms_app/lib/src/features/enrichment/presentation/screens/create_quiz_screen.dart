@@ -120,7 +120,7 @@ class _CreateQuizScreenState extends ConsumerState<CreateQuizScreen> {
               ),
               const SizedBox(height: 16),
               DropdownButtonFormField<QuizMode>(
-                value: _mode,
+                initialValue: _mode,
                 decoration: const InputDecoration(
                   labelText: 'Mode',
                   border: OutlineInputBorder(),
@@ -141,7 +141,7 @@ class _CreateQuizScreenState extends ConsumerState<CreateQuizScreen> {
               ),
               const SizedBox(height: 16),
               DropdownButtonFormField<QuizVisibility>(
-                value: _visibility,
+                initialValue: _visibility,
                 decoration: const InputDecoration(
                   labelText: 'Visibility',
                   border: OutlineInputBorder(),

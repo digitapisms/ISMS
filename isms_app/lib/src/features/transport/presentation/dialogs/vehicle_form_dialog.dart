@@ -223,7 +223,7 @@ class _VehicleFormDialogState extends ConsumerState<VehicleFormDialog> {
                           const SizedBox(width: 16),
                           Expanded(
                             child: DropdownButtonFormField<VehicleType>(
-                              value: _selectedType,
+                              initialValue: _selectedType,
                               decoration: const InputDecoration(
                                 labelText: 'Vehicle Type',
                                 border: OutlineInputBorder(),
@@ -403,7 +403,7 @@ class _VehicleFormDialogState extends ConsumerState<VehicleFormDialog> {
                       ),
                       const SizedBox(height: 16),
                       DropdownButtonFormField<VehicleStatus>(
-                        value: _selectedStatus,
+                        initialValue: _selectedStatus,
                         decoration: const InputDecoration(
                           labelText: 'Status',
                           border: OutlineInputBorder(),

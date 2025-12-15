@@ -5,6 +5,7 @@ import 'tabs/book_catalog_tab.dart';
 import 'tabs/digital_library_tab.dart';
 import 'tabs/fines_tab.dart';
 import 'tabs/issues_returns_tab.dart';
+import 'tabs/learning_analytics_tab.dart';
 
 class LibraryScreen extends ConsumerStatefulWidget {
   const LibraryScreen({super.key});
@@ -20,7 +21,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 5, vsync: this);
   }
 
   @override
@@ -31,7 +32,6 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
 
   @override
   Widget build(BuildContext context) {
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('Library Management'),
@@ -42,6 +42,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
             Tab(icon: Icon(Icons.swap_horiz), text: 'Issues & Returns'),
             Tab(icon: Icon(Icons.library_books), text: 'Digital Library'),
             Tab(icon: Icon(Icons.money), text: 'Fines'),
+            Tab(icon: Icon(Icons.analytics), text: 'Analytics'),
           ],
         ),
       ),
@@ -52,9 +53,9 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
           IssuesReturnsTab(),
           DigitalLibraryTab(),
           FinesTab(),
+          LearningAnalyticsTab(),
         ],
       ),
     );
   }
 }
-

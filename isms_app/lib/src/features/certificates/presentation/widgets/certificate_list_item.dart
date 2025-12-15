@@ -2,12 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
-import '../../application/certificates_providers.dart';
 import '../../domain/certificate.dart';
-import '../../domain/certificate_template.dart';
 import '../../domain/certificate_type.dart';
-import '../../services/pdf_generator.dart';
-import '../dialogs/email_certificate_dialog.dart';
 
 class CertificateListItem extends ConsumerWidget {
   final Certificate certificate;

@@ -36,7 +36,7 @@ class _AttendanceHistoryTabState extends ConsumerState<AttendanceHistoryTab> {
         // Filters
         Container(
           padding: const EdgeInsets.all(16),
-          color: Theme.of(context).colorScheme.surfaceVariant,
+          color: Theme.of(context).colorScheme.surfaceContainerHighest,
           child: Column(
             children: [
               // Date Range
@@ -256,7 +256,7 @@ class _ClassSelector extends ConsumerWidget {
           return const Text('No classes available');
         }
         return DropdownButtonFormField<int>(
-          value: selectedClassId,
+          initialValue: selectedClassId,
           decoration: const InputDecoration(
             labelText: 'Class (Optional)',
             border: OutlineInputBorder(),
@@ -297,7 +297,7 @@ class _SectionSelector extends ConsumerWidget {
     return sectionsAsync.when(
       data: (sections) {
         return DropdownButtonFormField<int>(
-          value: selectedSectionId,
+          initialValue: selectedSectionId,
           decoration: const InputDecoration(
             labelText: 'Section (Optional)',
             border: OutlineInputBorder(),
@@ -347,7 +347,7 @@ class _StudentSelector extends ConsumerWidget {
     return studentsAsync.when(
       data: (students) {
         return DropdownButtonFormField<String>(
-          value: selectedStudentId,
+          initialValue: selectedStudentId,
           decoration: const InputDecoration(
             labelText: 'Student (Optional)',
             border: OutlineInputBorder(),

@@ -193,7 +193,7 @@ class _ExamFormDialogState extends ConsumerState<ExamFormDialog> {
                           border: OutlineInputBorder(),
                           prefixIcon: Icon(Icons.category),
                         ),
-                        value: _examType,
+                        initialValue: _examType,
                         items: ExamType.values.map((type) {
                           return DropdownMenuItem(
                             value: type,
@@ -225,7 +225,7 @@ class _ExamFormDialogState extends ConsumerState<ExamFormDialog> {
                           border: OutlineInputBorder(),
                           prefixIcon: Icon(Icons.event),
                         ),
-                        value: _term,
+                        initialValue: _term,
                         items: [
                           const DropdownMenuItem<Term?>(
                             value: null,

@@ -351,7 +351,7 @@ class _FeeReportsScreenState extends ConsumerState<FeeReportsScreen> {
                 labelText: 'Status Filter',
                 border: OutlineInputBorder(),
               ),
-              value: _selectedStatus,
+              initialValue: _selectedStatus,
               items: [
                 const DropdownMenuItem<InvoiceStatus?>(
                   value: null,

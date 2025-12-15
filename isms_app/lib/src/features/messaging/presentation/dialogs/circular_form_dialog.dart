@@ -136,7 +136,7 @@ class _CircularFormDialogState extends ConsumerState<CircularFormDialog> {
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<CircularType>(
-                  value: _circularType,
+                  initialValue: _circularType,
                   decoration: const InputDecoration(
                     labelText: 'Type',
                     border: OutlineInputBorder(),
@@ -155,7 +155,7 @@ class _CircularFormDialogState extends ConsumerState<CircularFormDialog> {
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<TargetAudience>(
-                  value: _targetAudience,
+                  initialValue: _targetAudience,
                   decoration: const InputDecoration(
                     labelText: 'Target Audience',
                     border: OutlineInputBorder(),

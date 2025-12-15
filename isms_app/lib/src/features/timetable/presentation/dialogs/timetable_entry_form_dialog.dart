@@ -182,7 +182,7 @@ class _TimetableEntryFormDialogState
                             border: OutlineInputBorder(),
                             prefixIcon: Icon(Icons.calendar_today),
                           ),
-                          value: _selectedDayOfWeek,
+                          initialValue: _selectedDayOfWeek,
                           items: [
                             for (int i = 1; i <= 7; i++)
                               DropdownMenuItem(
@@ -204,7 +204,7 @@ class _TimetableEntryFormDialogState
                               border: OutlineInputBorder(),
                               prefixIcon: Icon(Icons.access_time),
                             ),
-                            value: _selectedPeriodId,
+                            initialValue: _selectedPeriodId,
                             items: periods.where((p) => p.isActive).map((
                               period,
                             ) {
@@ -233,7 +233,7 @@ class _TimetableEntryFormDialogState
                             border: OutlineInputBorder(),
                             prefixIcon: Icon(Icons.subject),
                           ),
-                          value: _selectedSubjectId,
+                          initialValue: _selectedSubjectId,
                           items: subjects.map((subject) {
                             return DropdownMenuItem(
                               value: subject.id,
@@ -269,7 +269,7 @@ class _TimetableEntryFormDialogState
                                   border: OutlineInputBorder(),
                                   prefixIcon: Icon(Icons.person),
                                 ),
-                                value: _selectedTeacherId,
+                                initialValue: _selectedTeacherId,
                                 items: teachers.map((teacher) {
                                   return DropdownMenuItem(
                                     value: teacher.id,
@@ -296,7 +296,7 @@ class _TimetableEntryFormDialogState
                             border: OutlineInputBorder(),
                             prefixIcon: Icon(Icons.meeting_room),
                           ),
-                          value: _selectedRoomId,
+                          initialValue: _selectedRoomId,
                           items: rooms.map((room) {
                             return DropdownMenuItem(
                               value: room.id,

@@ -145,7 +145,7 @@ class PointsLeaderboardTab extends ConsumerWidget {
                           ),
                       ],
                     ),
-                    subtitle: Text('${student.admissionNo}'),
+                    subtitle: Text(student.admissionNo),
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [

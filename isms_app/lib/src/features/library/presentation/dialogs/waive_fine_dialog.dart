@@ -27,7 +27,7 @@ class _WaiveFineDialogState extends ConsumerState<WaiveFineDialog> {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      child: Container(
+      child: SizedBox(
         width: 400,
         child: Form(
           key: _formKey,

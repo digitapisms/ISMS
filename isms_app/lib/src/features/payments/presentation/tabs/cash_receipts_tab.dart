@@ -27,7 +27,7 @@ class CashReceiptsTab extends ConsumerWidget {
           children: [
             Container(
               padding: const EdgeInsets.all(16),
-              color: Theme.of(context).colorScheme.surfaceVariant,
+              color: Theme.of(context).colorScheme.surfaceContainerHighest,
               child: Row(
                 children: [
                   Expanded(

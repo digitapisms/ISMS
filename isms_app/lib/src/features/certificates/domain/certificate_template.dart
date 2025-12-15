@@ -42,7 +42,7 @@ class CertificateTemplate {
     this.digitalSignature2Url,
     this.digitalSignatureEnabled = false,
     this.isActive = true,
-    required this.createdBy,
+    this.createdBy = 'system',
     required this.createdAt,
     required this.updatedAt,
   });

@@ -23,3 +23,8 @@ final lowStockItemsProvider = FutureProvider<List<InventoryItem>>((ref) async {
   return repo.fetchItems(needsRestock: true);
 });
 
+final inventoryItemProvider = FutureProvider.autoDispose.family<InventoryItem, String>((ref, itemId) async {
+  final repo = ref.read(inventoryRepositoryProvider);
+  return repo.fetchItem(itemId);
+});
+

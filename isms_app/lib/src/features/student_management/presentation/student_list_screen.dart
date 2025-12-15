@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/subscription/feature_checker.dart';
 import '../../../core/subscription/feature_guard.dart';
+import '../../../core/subscription/upgrade_prompt_dialog.dart';
 import '../../../core/tenant/tenant_context.dart';
 import '../../authentication/application/auth_providers.dart';
 import '../../authentication/domain/user_role.dart';
 import '../../school_registration/application/school_providers.dart';
+import '../../subscription/application/subscription_providers.dart';
 import '../application/student_providers.dart';
 import '../domain/student.dart';
+import 'add_student_screen.dart';
 import 'bulk_import_screen.dart';
 import 'student_detail_screen.dart';
 import 'widgets/tenant_onboarding_checklist.dart';
@@ -97,6 +101,38 @@ class _StudentListScreenState extends ConsumerState<StudentListScreen> {
         : null;
     final studentsAsync = ref.watch(studentsProvider);
 
+    // Check if school context is available
+    if (tenantSchool == null && authUser?.schoolId == null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Students')),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.school_outlined,
+                  size: 64,
+                  color: Theme.of(context).colorScheme.error,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'School Context Required',
+                  style: Theme.of(context).textTheme.headlineSmall,
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Please select a school or ensure your account is linked to a school.',
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     // Perform search when filters change
     if (_isSearching) {
       _performSearch();
@@ -161,6 +197,88 @@ class _StudentListScreenState extends ConsumerState<StudentListScreen> {
       ),
       body: Column(
         children: [
+          // Feature usage indicator
+          studentsAsync.when(
+            data: (students) {
+              final school = ref.watch(currentSchoolProvider);
+              final subscriptionRepo = ref.read(subscriptionRepositoryProvider);
+              final checker = FeatureChecker(subscriptionRepo, school);
+              final usageInfoAsync = ref.watch(
+                FutureProvider((ref) async {
+                  return checker.checkFeature(
+                    'student_management',
+                    currentUsage: students.length,
+                  );
+                }),
+              );
+              
+              return usageInfoAsync.when(
+                data: (result) {
+                  if (result.limit != null) {
+                    final isNearLimit = result.currentUsage != null &&
+                        result.limit != null &&
+                        result.currentUsage! >= (result.limit! * 0.8).round();
+                    final isAtLimit = !result.isWithinLimit;
+                    
+                    if (isAtLimit || isNearLimit) {
+                      return Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
+                        color: isAtLimit
+                            ? Theme.of(context).colorScheme.errorContainer
+                            : Theme.of(context).colorScheme.tertiaryContainer,
+                        child: Row(
+                          children: [
+                            Icon(
+                              isAtLimit ? Icons.warning : Icons.info_outline,
+                              size: 20,
+                              color: isAtLimit
+                                  ? Theme.of(context).colorScheme.onErrorContainer
+                                  : Theme.of(context).colorScheme.onTertiaryContainer,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                isAtLimit
+                                    ? 'Student limit reached: ${result.currentUsage}/${result.limit}'
+                                    : 'Student limit: ${result.currentUsage}/${result.limit} (${((result.currentUsage! / result.limit!) * 100).round()}% used)',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: isAtLimit
+                                      ? Theme.of(context).colorScheme.onErrorContainer
+                                      : Theme.of(context).colorScheme.onTertiaryContainer,
+                                ),
+                              ),
+                            ),
+                            if (isAtLimit)
+                              TextButton(
+                                onPressed: () {
+                                  showDialog(
+                                    context: context,
+                                    builder: (context) => UpgradePromptDialog(
+                                      featureKey: 'student_management',
+                                      currentPlan: school?.subscriptionPlan ?? 'free',
+                                    ),
+                                  );
+                                },
+                                child: const Text('Upgrade'),
+                              ),
+                          ],
+                        ),
+                      );
+                    }
+                  }
+                  return const SizedBox.shrink();
+                },
+                loading: () => const SizedBox.shrink(),
+                error: (_, __) => const SizedBox.shrink(),
+              );
+            },
+            loading: () => const SizedBox.shrink(),
+            error: (_, __) => const SizedBox.shrink(),
+          ),
           if (shouldShowOnboarding)
             onboardingStatus!.when(
               data: (status) => status.isComplete
@@ -295,15 +413,17 @@ class _StudentListScreenState extends ConsumerState<StudentListScreen> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: _FeatureProtectedFAB(
         onPressed: () async {
-          await showDialog(
-            context: context,
-            builder: (_) => const _AddStudentDialog(),
+          final created = await Navigator.of(context).push<bool>(
+            MaterialPageRoute(
+              builder: (_) => const AddStudentScreen(),
+            ),
           );
-          ref.invalidate(studentsProvider);
+          if (created == true && mounted) {
+            ref.invalidate(studentsProvider);
+          }
         },
-        child: const Icon(Icons.add),
       ),
     );
   }
@@ -367,100 +487,85 @@ class _StudentListScreenState extends ConsumerState<StudentListScreen> {
   }
 }
 
-class _AddStudentDialog extends ConsumerStatefulWidget {
-  const _AddStudentDialog();
+/// FloatingActionButton that checks feature before showing
+class _FeatureProtectedFAB extends ConsumerWidget {
+  const _FeatureProtectedFAB({required this.onPressed});
+
+  final VoidCallback onPressed;
 
   @override
-  ConsumerState<_AddStudentDialog> createState() => _AddStudentDialogState();
-}
-
-class _AddStudentDialogState extends ConsumerState<_AddStudentDialog> {
-  final _formKey = GlobalKey<FormState>();
-  final _admissionController = TextEditingController();
-  final _nameController = TextEditingController();
-  bool _isSubmitting = false;
-  String? _error;
-
-  @override
-  void dispose() {
-    _admissionController.dispose();
-    _nameController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _submit() async {
-    if (!_formKey.currentState!.validate()) return;
-    setState(() {
-      _isSubmitting = true;
-      _error = null;
-    });
-    try {
-      final repo = ref.read(studentRepositoryProvider);
-      await repo.createStudent(
-        admissionNo: _admissionController.text.trim(),
-        fullName: _nameController.text.trim(),
-      );
-      if (!mounted) return;
-      Navigator.of(context).pop();
-    } catch (e) {
-      setState(() {
-        _error = 'Failed to create student: $e';
-      });
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isSubmitting = false;
-        });
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Add Student'),
-      content: Form(
-        key: _formKey,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextFormField(
-              controller: _admissionController,
-              decoration: const InputDecoration(labelText: 'Admission No'),
-              validator: (v) => (v == null || v.isEmpty) ? 'Required' : null,
+  Widget build(BuildContext context, WidgetRef ref) {
+    final school = ref.watch(currentSchoolProvider);
+    final subscriptionRepo = ref.read(subscriptionRepositoryProvider);
+    final studentsAsync = ref.watch(studentsProvider);
+    
+    return studentsAsync.when(
+      data: (students) {
+        final checker = FeatureChecker(subscriptionRepo, school);
+        final featureCheckAsync = ref.watch(
+          FutureProvider((ref) async {
+            return checker.checkFeature(
+              'student_management',
+              currentUsage: students.length,
+            );
+          }),
+        );
+        
+        return featureCheckAsync.when(
+          data: (result) {
+            if (result.canUse) {
+              return FloatingActionButton(
+                onPressed: onPressed,
+                tooltip: result.limit != null
+                    ? 'Add Student (${students.length}/${result.limit})'
+                    : 'Add Student',
+                child: const Icon(Icons.add),
+              );
+            }
+            
+            // Show disabled FAB with upgrade prompt
+            return FloatingActionButton(
+              onPressed: () {
+                showDialog(
+                  context: context,
+                  builder: (context) => UpgradePromptDialog(
+                    featureKey: 'student_management',
+                    currentPlan: school?.subscriptionPlan ?? 'free',
+                  ),
+                );
+              },
+              backgroundColor: Theme.of(context).colorScheme.errorContainer,
+              tooltip: result.statusMessage,
+              child: const Icon(Icons.lock),
+            );
+          },
+          loading: () => FloatingActionButton(
+            onPressed: null,
+            child: const SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
             ),
-            const SizedBox(height: 8),
-            TextFormField(
-              controller: _nameController,
-              decoration: const InputDecoration(labelText: 'Full Name'),
-              validator: (v) => (v == null || v.isEmpty) ? 'Required' : null,
-            ),
-            if (_error != null) ...[
-              const SizedBox(height: 8),
-              Text(
-                _error!,
-                style: TextStyle(color: Theme.of(context).colorScheme.error),
-              ),
-            ],
-          ],
+          ),
+          error: (_, __) => FloatingActionButton(
+            onPressed: onPressed,
+            child: const Icon(Icons.add),
+          ),
+        );
+      },
+      loading: () => FloatingActionButton(
+        onPressed: null,
+        child: const SizedBox(
+          width: 20,
+          height: 20,
+          child: CircularProgressIndicator(strokeWidth: 2),
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: _isSubmitting ? null : () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
-        ),
-        FilledButton(
-          onPressed: _isSubmitting ? null : _submit,
-          child: _isSubmitting
-              ? const SizedBox(
-                  height: 18,
-                  width: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Text('Save'),
-        ),
-      ],
+      error: (_, __) => FloatingActionButton(
+        onPressed: onPressed,
+        child: const Icon(Icons.add),
+      ),
     );
   }
 }
+

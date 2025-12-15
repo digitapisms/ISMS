@@ -134,7 +134,7 @@ class _TemplateFormDialogState extends ConsumerState<TemplateFormDialog> {
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<TemplateCategory>(
-                  value: _category,
+                  initialValue: _category,
                   decoration: const InputDecoration(
                     labelText: 'Category (Optional)',
                     border: OutlineInputBorder(),

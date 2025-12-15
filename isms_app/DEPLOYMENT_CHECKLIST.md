@@ -28,6 +28,9 @@ Use this checklist to ensure everything is deployed correctly.
 ## ✅ Database Setup
 
 - [ ] Database migration applied (`CREATE_AI_BACKEND_INTEGRATION`)
+- [ ] **Run legacy schema patch** `database/patches/20241121_add_missing_classes_columns.sql`
+  - Ensures `classes.level` and `classes.description` columns exist
+  - Prevents `PostgrestException PGRST204` when managing classes
 - [ ] Functions exist:
   - [ ] `retry_ai_task(uuid)`
   - [ ] `get_pending_ai_tasks_count()`
@@ -96,9 +99,7 @@ If something doesn't work:
    - [ ] Review app logs
 
 ## 📞 Need Help?
-
-If you're stuck, I can help:
-- ✅ Check deployment status
+ 
 - ✅ Fix configuration issues
 - ✅ Debug errors
 - ✅ Verify each step

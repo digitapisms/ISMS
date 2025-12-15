@@ -214,7 +214,7 @@ class _BookFormDialogState extends ConsumerState<BookFormDialog> {
                           const SizedBox(width: 16),
                           Expanded(
                             child: DropdownButtonFormField<BookType>(
-                              value: _selectedBookType,
+                              initialValue: _selectedBookType,
                               decoration: const InputDecoration(
                                 labelText: 'Book Type',
                                 border: OutlineInputBorder(),

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../application/timetable_providers.dart';
-import '../../data/timetable_repository.dart';
 import '../../../school_registration/application/school_providers.dart';
 
 /// Tab for detecting and resolving schedule conflicts

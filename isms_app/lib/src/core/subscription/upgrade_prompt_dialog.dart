@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../features/school_registration/application/school_providers.dart';
 import '../../features/subscription/application/subscription_providers.dart';
+import '../../features/subscription/presentation/screens/subscription_management_screen.dart';
 import 'feature_checker.dart';
 
 /// Dialog that shows upgrade options when a feature is restricted
@@ -40,9 +41,8 @@ class UpgradePromptDialog extends ConsumerWidget {
                   Expanded(
                     child: Text(
                       'Upgrade Required',
-                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
+                      style: Theme.of(context).textTheme.headlineSmall
+                          ?.copyWith(fontWeight: FontWeight.bold),
                     ),
                   ),
                   IconButton(
@@ -75,26 +75,20 @@ class UpgradePromptDialog extends ConsumerWidget {
                   return Column(
                     children: availablePlans.map((plan) {
                       final hasFeature = plan.features.any(
-                        (f) => f.feature?.featureKey == featureKey && f.isEnabled,
+                        (f) =>
+                            f.feature?.featureKey == featureKey && f.isEnabled,
                       );
 
                       return Card(
                         margin: const EdgeInsets.only(bottom: 12),
                         child: InkWell(
                           onTap: () {
-                            // TODO: Navigate to subscription upgrade page
                             Navigator.of(context).pop();
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  'Upgrade to ${plan.displayName} plan to access this feature.',
-                                ),
-                                action: SnackBarAction(
-                                  label: 'Contact Support',
-                                  onPressed: () {
-                                    // TODO: Open support/contact form
-                                  },
-                                ),
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) =>
+                                    const SubscriptionManagementScreen(),
                               ),
                             );
                           },
@@ -104,7 +98,8 @@ class UpgradePromptDialog extends ConsumerWidget {
                               children: [
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Row(
                                         children: [
@@ -120,13 +115,17 @@ class UpgradePromptDialog extends ConsumerWidget {
                                           if (hasFeature) ...[
                                             const SizedBox(width: 8),
                                             Container(
-                                              padding: const EdgeInsets.symmetric(
-                                                horizontal: 8,
-                                                vertical: 4,
-                                              ),
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 8,
+                                                    vertical: 4,
+                                                  ),
                                               decoration: BoxDecoration(
-                                                color: Colors.green.withOpacity(0.2),
-                                                borderRadius: BorderRadius.circular(4),
+                                                color: Colors.green.withOpacity(
+                                                  0.2,
+                                                ),
+                                                borderRadius:
+                                                    BorderRadius.circular(4),
                                               ),
                                               child: Text(
                                                 'Includes this feature',
@@ -135,7 +134,8 @@ class UpgradePromptDialog extends ConsumerWidget {
                                                     .bodySmall
                                                     ?.copyWith(
                                                       color: Colors.green,
-                                                      fontWeight: FontWeight.bold,
+                                                      fontWeight:
+                                                          FontWeight.bold,
                                                     ),
                                               ),
                                             ),
@@ -145,7 +145,9 @@ class UpgradePromptDialog extends ConsumerWidget {
                                       const SizedBox(height: 4),
                                       Text(
                                         '${plan.features.where((f) => f.isEnabled).length} features enabled',
-                                        style: Theme.of(context).textTheme.bodySmall,
+                                        style: Theme.of(
+                                          context,
+                                        ).textTheme.bodySmall,
                                       ),
                                     ],
                                   ),
@@ -179,10 +181,11 @@ class UpgradePromptDialog extends ConsumerWidget {
                   FilledButton(
                     onPressed: () {
                       Navigator.of(context).pop();
-                      // TODO: Navigate to subscription management page
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Contact your administrator to upgrade your plan.'),
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              const SubscriptionManagementScreen(),
                         ),
                       );
                     },
@@ -197,4 +200,3 @@ class UpgradePromptDialog extends ConsumerWidget {
     );
   }
 }
-

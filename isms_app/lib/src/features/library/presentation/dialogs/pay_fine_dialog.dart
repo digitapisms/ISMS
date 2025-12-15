@@ -21,7 +21,7 @@ class _PayFineDialogState extends ConsumerState<PayFineDialog> {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      child: Container(
+      child: SizedBox(
         width: 400,
         child: Form(
           key: _formKey,
@@ -70,7 +70,7 @@ class _PayFineDialogState extends ConsumerState<PayFineDialog> {
                     ),
                     const SizedBox(height: 16),
                     DropdownButtonFormField<String>(
-                      value: _selectedPaymentMethod,
+                      initialValue: _selectedPaymentMethod,
                       decoration: const InputDecoration(
                         labelText: 'Payment Method *',
                         border: OutlineInputBorder(),

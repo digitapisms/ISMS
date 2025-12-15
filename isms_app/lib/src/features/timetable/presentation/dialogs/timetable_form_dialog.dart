@@ -196,7 +196,7 @@ class _TimetableFormDialogState extends ConsumerState<TimetableFormDialog> {
                           border: OutlineInputBorder(),
                           prefixIcon: Icon(Icons.class_),
                         ),
-                        value: _selectedClassId,
+                        initialValue: _selectedClassId,
                         items: classes.map((cls) {
                           return DropdownMenuItem(
                             value: cls.id,
@@ -220,7 +220,7 @@ class _TimetableFormDialogState extends ConsumerState<TimetableFormDialog> {
                         border: OutlineInputBorder(),
                         prefixIcon: Icon(Icons.event),
                       ),
-                      value: _term,
+                      initialValue: _term,
                       items: [
                         const DropdownMenuItem<Term?>(
                           value: null,

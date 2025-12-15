@@ -6,6 +6,7 @@ import '../../authentication/domain/user_role.dart';
 import '../application/inventory_providers.dart';
 import 'widgets/item_card.dart';
 import 'dialogs/item_form_dialog.dart';
+import 'screens/item_details_screen.dart';
 
 class InventoryScreen extends ConsumerStatefulWidget {
   const InventoryScreen({super.key});
@@ -23,7 +24,8 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
         ? ref.watch(lowStockItemsProvider)
         : ref.watch(inventoryItemsProvider);
     final currentUser = ref.watch(currentUserProvider).value;
-    final isAdmin = currentUser?.role == UserRole.admin ||
+    final isAdmin =
+        currentUser?.role == UserRole.admin ||
         currentUser?.role == UserRole.principal ||
         currentUser?.role == UserRole.staff;
 
@@ -49,10 +51,7 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
                     gradient: LinearGradient(
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
-                      colors: [
-                        Colors.teal[700]!,
-                        Colors.cyan[700]!,
-                      ],
+                      colors: [Colors.teal[700]!, Colors.cyan[700]!],
                     ),
                   ),
                   child: const Center(
@@ -123,7 +122,13 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
                         child: ItemCard(
                           item: items[index],
                           onTap: () {
-                            // TODO: Show item details
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) =>
+                                    ItemDetailsScreen(itemId: items[index].id),
+                              ),
+                            );
                           },
                         ),
                       );
@@ -131,9 +136,7 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
                   );
                 },
                 loading: () => const Center(child: CircularProgressIndicator()),
-                error: (error, stack) => Center(
-                  child: Text('Error: $error'),
-                ),
+                error: (error, stack) => Center(child: Text('Error: $error')),
               ),
             ),
           ],
@@ -154,4 +157,3 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
     );
   }
 }
-

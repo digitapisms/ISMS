@@ -50,7 +50,7 @@ class MessagingRepository {
         .insert(_withSchoolId(conversation.toJson()))
         .select()
         .single();
-    return Conversation.fromJson(response as Map<String, dynamic>);
+    return Conversation.fromJson(response);
   }
 
   Future<List<Conversation>> fetchConversations({String? userId}) async {
@@ -105,7 +105,7 @@ class MessagingRepository {
         .maybeSingle();
     
     if (response == null) return null;
-    return Conversation.fromJson(response as Map<String, dynamic>);
+    return Conversation.fromJson(response);
   }
 
   Future<Conversation> updateConversation(Conversation conversation) async {
@@ -117,7 +117,7 @@ class MessagingRepository {
         .eq('school_id', _requireSchoolId())
         .select()
         .single();
-    return Conversation.fromJson(response as Map<String, dynamic>);
+    return Conversation.fromJson(response);
   }
 
   Future<void> deleteConversation(String conversationId) async {
@@ -153,7 +153,7 @@ class MessagingRepository {
         .insert(_withSchoolId(participant.toJson()))
         .select()
         .single();
-    return ConversationParticipant.fromJson(response as Map<String, dynamic>);
+    return ConversationParticipant.fromJson(response);
   }
 
   Future<List<ConversationParticipant>> getParticipants(String conversationId) async {
@@ -204,7 +204,7 @@ class MessagingRepository {
         .insert(_withSchoolId(message.toJson()))
         .select()
         .single();
-    return Message.fromJson(response as Map<String, dynamic>);
+    return Message.fromJson(response);
   }
 
   Future<List<Message>> fetchMessages(
@@ -245,7 +245,7 @@ class MessagingRepository {
         .eq('school_id', _requireSchoolId())
         .select()
         .single();
-    return Message.fromJson(response as Map<String, dynamic>);
+    return Message.fromJson(response);
   }
 
   Future<void> deleteMessage(String messageId) async {
@@ -290,7 +290,7 @@ class MessagingRepository {
         .insert(_withSchoolId(attachment.toJson()))
         .select()
         .single();
-    return MessageAttachment.fromJson(response as Map<String, dynamic>);
+    return MessageAttachment.fromJson(response);
   }
 
   Future<List<MessageAttachment>> getAttachments(String messageId) async {
@@ -346,7 +346,7 @@ class MessagingRepository {
         .insert(_withSchoolId(announcement.toJson()))
         .select()
         .single();
-    return Announcement.fromJson(response as Map<String, dynamic>);
+    return Announcement.fromJson(response);
   }
 
   Future<List<Announcement>> fetchAnnouncements({
@@ -389,7 +389,7 @@ class MessagingRepository {
         .eq('school_id', _requireSchoolId())
         .select()
         .single();
-    return Announcement.fromJson(response as Map<String, dynamic>);
+    return Announcement.fromJson(response);
   }
 
   Future<void> publishAnnouncement(String announcementId) async {
@@ -462,7 +462,7 @@ class MessagingRepository {
           .insert(_withSchoolId(updatedCircular.toJson()))
           .select()
           .single();
-      return Circular.fromJson(insertResponse as Map<String, dynamic>);
+      return Circular.fromJson(insertResponse);
     }
     
     final response = await _client
@@ -470,7 +470,7 @@ class MessagingRepository {
         .insert(_withSchoolId(circular.toJson()))
         .select()
         .single();
-    return Circular.fromJson(response as Map<String, dynamic>);
+    return Circular.fromJson(response);
   }
 
   Future<List<Circular>> fetchCirculars({
@@ -513,7 +513,7 @@ class MessagingRepository {
         .eq('school_id', _requireSchoolId())
         .select()
         .single();
-    return Circular.fromJson(response as Map<String, dynamic>);
+    return Circular.fromJson(response);
   }
 
   Future<void> deleteCircular(String circularId) async {
@@ -548,7 +548,7 @@ class MessagingRepository {
         .insert(_withSchoolId(template.toJson()))
         .select()
         .single();
-    return MessageTemplate.fromJson(response as Map<String, dynamic>);
+    return MessageTemplate.fromJson(response);
   }
 
   Future<List<MessageTemplate>> fetchTemplates({
@@ -583,7 +583,7 @@ class MessagingRepository {
         .eq('school_id', _requireSchoolId())
         .select()
         .single();
-    return MessageTemplate.fromJson(response as Map<String, dynamic>);
+    return MessageTemplate.fromJson(response);
   }
 
   Future<void> deleteTemplate(String templateId) async {

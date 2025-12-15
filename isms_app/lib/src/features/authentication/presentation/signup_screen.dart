@@ -27,6 +27,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   final _schoolCodeController = TextEditingController();
   bool _validatingCode = false;
   String? _schoolName; // Show school name when code is validated
+  String? _schoolCodeError; // Error message for school code validation
   bool _validatingInvite = false;
   Map<String, dynamic>? _inviteDetails;
   String? _inviteError;
@@ -65,16 +66,21 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
       setState(() {
         _selectedSchoolId = null;
         _schoolName = null;
+        _schoolCodeError = null;
       });
       return;
     }
 
     if (code.length < 4) {
+      setState(() {
+        _schoolCodeError = null;
+      });
       return; // Wait for more characters
     }
 
     setState(() {
       _validatingCode = true;
+      _schoolCodeError = null;
     });
 
     try {
@@ -85,9 +91,11 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
         if (school != null) {
           _selectedSchoolId = school.id;
           _schoolName = school.name;
+          _schoolCodeError = null;
         } else {
           _selectedSchoolId = null;
           _schoolName = null;
+          _schoolCodeError = 'School code not found or school is not active';
         }
         _validatingCode = false;
       });
@@ -95,6 +103,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
       setState(() {
         _selectedSchoolId = null;
         _schoolName = null;
+        _schoolCodeError = 'Error validating school code: ${e.toString()}';
         _validatingCode = false;
       });
     }
@@ -187,8 +196,21 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
       // Go back to the first route (login screen)
       Navigator.of(context).popUntil((route) => route.isFirst);
     } catch (e) {
+      // Extract a cleaner error message
+      String errorMessage = e.toString();
+      // Remove "Exception: " prefix if present
+      if (errorMessage.startsWith('Exception: ')) {
+        errorMessage = errorMessage.substring(11);
+      }
+      // If the message already includes helpful text, use it as-is
+      // Otherwise, prepend "Sign up failed: "
+      if (!errorMessage.toLowerCase().contains('already exists') &&
+          !errorMessage.toLowerCase().contains('sign in')) {
+        errorMessage = 'Sign up failed: $errorMessage';
+      }
+      
       setState(() {
-        _error = 'Sign up failed: $e';
+        _error = errorMessage;
       });
     } finally {
       if (mounted) {
@@ -229,10 +251,11 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
               padding: const EdgeInsets.all(24),
               child: Form(
                 key: _formKey,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
                     Text(
                       'Sign up as ${_getRoleName(widget.role)}',
                       style: Theme.of(context).textTheme.headlineSmall,
@@ -290,6 +313,35 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                           return null;
                         },
                       ),
+                      if (_schoolCodeError != null) ...[
+                        const SizedBox(height: 8),
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).colorScheme.errorContainer,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.error_outline,
+                                color: Theme.of(context).colorScheme.error,
+                                size: 20,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  _schoolCodeError!,
+                                  style: TextStyle(
+                                    color: Theme.of(context).colorScheme.onErrorContainer,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                       if (_schoolName != null) ...[
                         const SizedBox(height: 8),
                         Container(
@@ -450,6 +502,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                           : const Text('Sign Up'),
                     ),
                   ],
+                  ),
                 ),
               ),
             ),

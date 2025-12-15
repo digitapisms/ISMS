@@ -112,7 +112,7 @@ class _TemplateFormDialogState extends ConsumerState<TemplateFormDialog> {
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<CertificateType>(
-                  value: _certificateType,
+                  initialValue: _certificateType,
                   decoration: const InputDecoration(
                     labelText: 'Certificate Type',
                     border: OutlineInputBorder(),
@@ -131,7 +131,7 @@ class _TemplateFormDialogState extends ConsumerState<TemplateFormDialog> {
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<TemplateType>(
-                  value: _templateType,
+                  initialValue: _templateType,
                   decoration: const InputDecoration(
                     labelText: 'Template Type',
                     border: OutlineInputBorder(),

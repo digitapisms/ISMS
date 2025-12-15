@@ -177,7 +177,7 @@ class _PeriodFormDialogState extends ConsumerState<PeriodFormDialog> {
                         border: OutlineInputBorder(),
                         prefixIcon: Icon(Icons.category),
                       ),
-                      value: _periodType,
+                      initialValue: _periodType,
                       items: PeriodType.values.map((type) {
                         return DropdownMenuItem(
                           value: type,

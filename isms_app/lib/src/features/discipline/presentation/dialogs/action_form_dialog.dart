@@ -114,7 +114,7 @@ class _ActionFormDialogState extends ConsumerState<ActionFormDialog> {
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<ActionType>(
-                  value: _actionType,
+                  initialValue: _actionType,
                   decoration: InputDecoration(
                     labelText: 'Action Type *',
                     border: OutlineInputBorder(

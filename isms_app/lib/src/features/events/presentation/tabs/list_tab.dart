@@ -24,7 +24,7 @@ class ListTab extends ConsumerWidget {
             children: [
               Expanded(
                 child: DropdownButtonFormField<EventType?>(
-                  value: selectedType,
+                  initialValue: selectedType,
                   decoration: InputDecoration(
                     labelText: 'Filter by Type',
                     border: OutlineInputBorder(
@@ -59,7 +59,7 @@ class ListTab extends ConsumerWidget {
               const SizedBox(width: 12),
               Expanded(
                 child: DropdownButtonFormField<EventStatus?>(
-                  value: selectedStatus,
+                  initialValue: selectedStatus,
                   decoration: InputDecoration(
                     labelText: 'Filter by Status',
                     border: OutlineInputBorder(

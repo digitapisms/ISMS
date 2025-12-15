@@ -206,7 +206,7 @@ class _RoomFormDialogState extends ConsumerState<RoomFormDialog> {
                           border: OutlineInputBorder(),
                           prefixIcon: Icon(Icons.category),
                         ),
-                        value: _roomType,
+                        initialValue: _roomType,
                         items: RoomType.values.map((type) {
                           return DropdownMenuItem(
                             value: type,

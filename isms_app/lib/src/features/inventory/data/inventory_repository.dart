@@ -34,7 +34,7 @@ class InventoryRepository {
         .insert(_withSchoolId(item.toJson()))
         .select()
         .single();
-    return InventoryItem.fromJson(response as Map<String, dynamic>);
+    return InventoryItem.fromJson(response);
   }
 
   Future<List<InventoryItem>> fetchItems({
@@ -78,7 +78,7 @@ class InventoryRepository {
         .eq('school_id', _requireSchoolId())
         .select()
         .single();
-    return InventoryItem.fromJson(response as Map<String, dynamic>);
+    return InventoryItem.fromJson(response);
   }
 
   Future<void> deleteItem(String itemId) async {
@@ -88,6 +88,17 @@ class InventoryRepository {
         .delete()
         .eq('id', itemId)
         .eq('school_id', _requireSchoolId());
+  }
+
+  Future<InventoryItem> fetchItem(String itemId) async {
+    _requireSchoolId();
+    final response = await _client
+        .from('inventory_items')
+        .select()
+        .eq('id', itemId)
+        .eq('school_id', _requireSchoolId())
+        .single();
+    return InventoryItem.fromJson(response);
   }
 }
 

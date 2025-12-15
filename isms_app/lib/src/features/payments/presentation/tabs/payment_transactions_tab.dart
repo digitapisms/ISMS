@@ -3,15 +3,30 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../application/payment_providers.dart';
+import '../../domain/payment_filters.dart';
 import '../../domain/payment_transaction.dart';
+import '../../services/export_service.dart';
+import '../dialogs/payment_filter_dialog.dart';
 import '../screens/transaction_detail_screen.dart';
 
-class PaymentTransactionsTab extends ConsumerWidget {
+class PaymentTransactionsTab extends ConsumerStatefulWidget {
   const PaymentTransactionsTab({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final transactionsAsync = ref.watch(paymentTransactionsProvider);
+  ConsumerState<PaymentTransactionsTab> createState() =>
+      _PaymentTransactionsTabState();
+}
+
+class _PaymentTransactionsTabState
+    extends ConsumerState<PaymentTransactionsTab> {
+  PaymentFilters _filters = const PaymentFilters();
+  String _searchQuery = '';
+
+  @override
+  Widget build(BuildContext context) {
+    final transactionsAsync = _searchQuery.isEmpty
+        ? ref.watch(filteredPaymentTransactionsProvider(_filters))
+        : ref.watch(paymentSearchProvider(_searchQuery));
 
     return transactionsAsync.when(
       data: (transactions) {
@@ -55,7 +70,7 @@ class PaymentTransactionsTab extends ConsumerWidget {
           children: [
             Container(
               padding: const EdgeInsets.all(16),
-              color: Theme.of(context).colorScheme.surfaceVariant,
+              color: Theme.of(context).colorScheme.surfaceContainerHighest,
               child: Column(
                 children: [
                   Row(
@@ -99,15 +114,18 @@ class PaymentTransactionsTab extends ConsumerWidget {
                         child: OutlinedButton.icon(
                           icon: const Icon(Icons.filter_list, size: 18),
                           label: const Text('Filters'),
-                          onPressed: () {
-                            // TODO: Show filter dialog
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text(
-                                  'Filter functionality coming soon',
-                                ),
-                              ),
+                          onPressed: () async {
+                            final newFilters = await showDialog<PaymentFilters>(
+                              context: context,
+                              builder: (context) =>
+                                  PaymentFilterDialog(currentFilters: _filters),
                             );
+
+                            if (newFilters != null) {
+                              setState(() {
+                                _filters = newFilters;
+                              });
+                            }
                           },
                         ),
                       ),
@@ -116,15 +134,19 @@ class PaymentTransactionsTab extends ConsumerWidget {
                         child: OutlinedButton.icon(
                           icon: const Icon(Icons.search, size: 18),
                           label: const Text('Search'),
-                          onPressed: () {
-                            // TODO: Show search dialog
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text(
-                                  'Search functionality coming soon',
-                                ),
+                          onPressed: () async {
+                            final query = await showDialog<String>(
+                              context: context,
+                              builder: (context) => PaymentSearchDialog(
+                                initialQuery: _searchQuery,
                               ),
                             );
+
+                            if (query != null) {
+                              setState(() {
+                                _searchQuery = query;
+                              });
+                            }
                           },
                         ),
                       ),
@@ -132,13 +154,50 @@ class PaymentTransactionsTab extends ConsumerWidget {
                       OutlinedButton.icon(
                         icon: const Icon(Icons.download, size: 18),
                         label: const Text('Export'),
-                        onPressed: () {
-                          // TODO: Export transactions
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Export functionality coming soon'),
-                            ),
-                          );
+                        onPressed: () async {
+                          try {
+                            final transactions = await ref.read(
+                              filteredPaymentTransactionsProvider(
+                                _filters,
+                              ).future,
+                            );
+
+                            if (transactions.isEmpty) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('No transactions to export'),
+                                ),
+                              );
+                              return;
+                            }
+
+                            final csvContent =
+                                await ExportService.exportTransactionsToCSV(
+                                  transactions,
+                                );
+                            final fileName =
+                                ExportService.generateExportFileName();
+
+                            // Save file using platform channels
+                            await ExportService.saveCSVToFile(
+                              csvContent,
+                              fileName,
+                            );
+
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  'Exported ${transactions.length} transactions to $fileName',
+                                ),
+                              ),
+                            );
+                          } catch (e) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Export failed: ${e.toString()}'),
+                              ),
+                            );
+                          }
                         },
                       ),
                     ],

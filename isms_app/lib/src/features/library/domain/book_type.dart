@@ -1,8 +1,4 @@
-enum BookType {
-  physical,
-  digital,
-  both,
-}
+enum BookType { physical, digital, both }
 
 extension BookTypeX on BookType {
   String get dbValue {
@@ -41,14 +37,7 @@ extension BookTypeX on BookType {
   }
 }
 
-enum BookCopyStatus {
-  available,
-  issued,
-  reserved,
-  lost,
-  damaged,
-  maintenance,
-}
+enum BookCopyStatus { available, issued, reserved, lost, damaged, maintenance }
 
 extension BookCopyStatusX on BookCopyStatus {
   String get dbValue {
@@ -88,13 +77,7 @@ extension BookCopyStatusX on BookCopyStatus {
   }
 }
 
-enum BookCondition {
-  excellent,
-  good,
-  fair,
-  poor,
-  damaged,
-}
+enum BookCondition { excellent, good, fair, poor, damaged }
 
 extension BookConditionX on BookCondition {
   String get dbValue {
@@ -145,12 +128,7 @@ extension BookConditionX on BookCondition {
   }
 }
 
-enum IssueStatus {
-  issued,
-  returned,
-  overdue,
-  lost,
-}
+enum IssueStatus { issued, returned, overdue, lost }
 
 extension IssueStatusX on IssueStatus {
   String get dbValue {
@@ -195,12 +173,7 @@ extension IssueStatusX on IssueStatus {
   }
 }
 
-enum ReservationStatus {
-  pending,
-  fulfilled,
-  cancelled,
-  expired,
-}
+enum ReservationStatus { pending, fulfilled, cancelled, expired }
 
 extension ReservationStatusX on ReservationStatus {
   String get dbValue {
@@ -232,12 +205,7 @@ extension ReservationStatusX on ReservationStatus {
   }
 }
 
-enum FineStatus {
-  pending,
-  paid,
-  waived,
-  cancelled,
-}
+enum FineStatus { pending, paid, waived, cancelled }
 
 extension FineStatusX on FineStatus {
   String get dbValue {
@@ -269,13 +237,7 @@ extension FineStatusX on FineStatus {
   }
 }
 
-enum DigitalResourceType {
-  ebook,
-  pdf,
-  audio,
-  video,
-  document,
-}
+enum DigitalResourceType { ebook, pdf, audio, video, document }
 
 extension DigitalResourceTypeX on DigitalResourceType {
   String get dbValue {
@@ -326,11 +288,13 @@ extension DigitalResourceTypeX on DigitalResourceType {
   }
 }
 
-enum AccessLevel {
-  public,
-  restricted,
-  premium,
-}
+enum AccessLevel { public, restricted, premium }
+
+enum PermissionLevel { view, download, edit, comment }
+
+enum ShareStatus { pending, accepted, declined, revoked, expired }
+
+enum ShareType { view, download, edit }
 
 extension AccessLevelX on AccessLevel {
   String get dbValue {
@@ -358,3 +322,92 @@ extension AccessLevelX on AccessLevel {
   }
 }
 
+extension PermissionLevelX on PermissionLevel {
+  String get dbValue {
+    switch (this) {
+      case PermissionLevel.view:
+        return 'view';
+      case PermissionLevel.download:
+        return 'download';
+      case PermissionLevel.edit:
+        return 'edit';
+      case PermissionLevel.comment:
+        return 'comment';
+    }
+  }
+
+  static PermissionLevel fromDb(String value) {
+    switch (value) {
+      case 'view':
+        return PermissionLevel.view;
+      case 'download':
+        return PermissionLevel.download;
+      case 'edit':
+        return PermissionLevel.edit;
+      case 'comment':
+        return PermissionLevel.comment;
+      default:
+        return PermissionLevel.view;
+    }
+  }
+}
+
+extension ShareStatusX on ShareStatus {
+  String get dbValue {
+    switch (this) {
+      case ShareStatus.pending:
+        return 'pending';
+      case ShareStatus.accepted:
+        return 'accepted';
+      case ShareStatus.declined:
+        return 'declined';
+      case ShareStatus.revoked:
+        return 'revoked';
+      case ShareStatus.expired:
+        return 'expired';
+    }
+  }
+
+  static ShareStatus fromDb(String value) {
+    switch (value) {
+      case 'pending':
+        return ShareStatus.pending;
+      case 'accepted':
+        return ShareStatus.accepted;
+      case 'declined':
+        return ShareStatus.declined;
+      case 'revoked':
+        return ShareStatus.revoked;
+      case 'expired':
+        return ShareStatus.expired;
+      default:
+        return ShareStatus.pending;
+    }
+  }
+}
+
+extension ShareTypeX on ShareType {
+  String get dbValue {
+    switch (this) {
+      case ShareType.view:
+        return 'view';
+      case ShareType.download:
+        return 'download';
+      case ShareType.edit:
+        return 'edit';
+    }
+  }
+
+  static ShareType fromDb(String value) {
+    switch (value) {
+      case 'view':
+        return ShareType.view;
+      case 'download':
+        return ShareType.download;
+      case 'edit':
+        return ShareType.edit;
+      default:
+        return ShareType.view;
+    }
+  }
+}

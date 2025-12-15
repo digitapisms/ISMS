@@ -195,7 +195,7 @@ class _StaffFilters extends StatelessWidget {
               children: [
                 Expanded(
                   child: DropdownButtonFormField<String?>(
-                    value: filters.role,
+                    initialValue: filters.role,
                     decoration: const InputDecoration(
                       labelText: 'Role',
                       border: OutlineInputBorder(),
@@ -224,7 +224,7 @@ class _StaffFilters extends StatelessWidget {
                 const SizedBox(width: 12),
                 Expanded(
                   child: DropdownButtonFormField<String?>(
-                    value: filters.status,
+                    initialValue: filters.status,
                     decoration: const InputDecoration(
                       labelText: 'Status',
                       border: OutlineInputBorder(),
@@ -395,7 +395,7 @@ class _InviteFilters extends StatelessWidget {
           children: [
             Expanded(
               child: DropdownButtonFormField<String?>(
-                value: filters.status,
+                initialValue: filters.status,
                 decoration: const InputDecoration(
                   labelText: 'Status',
                   border: OutlineInputBorder(),
@@ -557,7 +557,7 @@ class _InviteStaffDialogState extends ConsumerState<_InviteStaffDialog> {
                       ),
                       const SizedBox(height: 12),
                       DropdownButtonFormField<UserRole>(
-                        value: _role,
+                        initialValue: _role,
                         decoration: const InputDecoration(
                           labelText: 'Role',
                           border: OutlineInputBorder(),
@@ -586,7 +586,7 @@ class _InviteStaffDialogState extends ConsumerState<_InviteStaffDialog> {
                       ),
                       const SizedBox(height: 12),
                       DropdownButtonFormField<int?>(
-                        value: _expiresInDays,
+                        initialValue: _expiresInDays,
                         decoration: const InputDecoration(
                           labelText: 'Expires in',
                           border: OutlineInputBorder(),

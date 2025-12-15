@@ -1,6 +1,13 @@
+import 'dart:typed_data';
+
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/storage/storage_providers.dart';
+import '../../../core/tenant/tenant_context.dart';
+import '../../authentication/application/auth_providers.dart';
 import '../application/student_providers.dart';
 import '../domain/student.dart';
 
@@ -15,6 +22,8 @@ class EditStudentScreen extends ConsumerStatefulWidget {
 
 class _EditStudentScreenState extends ConsumerState<EditStudentScreen> {
   final _formKey = GlobalKey<FormState>();
+  late final TextEditingController _admissionController;
+  late final TextEditingController _fullNameController;
   late int? _selectedClassId;
   late int? _selectedSectionId;
   late DateTime? _selectedDob;
@@ -22,6 +31,9 @@ class _EditStudentScreenState extends ConsumerState<EditStudentScreen> {
   late String? _selectedBloodGroup;
   late String _medicalInfo;
   late String _status;
+  String? _currentAvatarUrl;
+  PlatformFile? _selectedPhoto;
+  Uint8List? _photoPreview;
 
   List<Map<String, dynamic>> _classes = [];
   List<Map<String, dynamic>> _sections = [];
@@ -31,6 +43,10 @@ class _EditStudentScreenState extends ConsumerState<EditStudentScreen> {
   @override
   void initState() {
     super.initState();
+    _admissionController =
+        TextEditingController(text: widget.student.admissionNo);
+    _fullNameController =
+        TextEditingController(text: widget.student.fullName);
     _selectedClassId = widget.student.classId;
     _selectedSectionId = widget.student.sectionId;
     _selectedDob = widget.student.dob;
@@ -38,7 +54,15 @@ class _EditStudentScreenState extends ConsumerState<EditStudentScreen> {
     _selectedBloodGroup = widget.student.bloodGroup;
     _medicalInfo = widget.student.medicalInfo ?? '';
     _status = widget.student.status ?? 'active';
+    _currentAvatarUrl = widget.student.avatarUrl;
     _loadClasses();
+  }
+
+  @override
+  void dispose() {
+    _admissionController.dispose();
+    _fullNameController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadClasses() async {
@@ -64,6 +88,45 @@ class _EditStudentScreenState extends ConsumerState<EditStudentScreen> {
     });
   }
 
+  Future<void> _pickPhoto() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.image,
+      withData: true,
+    );
+    if (result == null || result.files.isEmpty) return;
+    setState(() {
+      _selectedPhoto = result.files.single;
+      _photoPreview = _selectedPhoto?.bytes;
+    });
+  }
+
+  Future<String?> _uploadPhoto() async {
+    if (_selectedPhoto == null) return null;
+    final bytes = _selectedPhoto!.bytes;
+    if (bytes == null) {
+      throw Exception('Unable to read the selected image. Please try again.');
+    }
+
+    final schoolId = ref.read(tenantContextProvider)?.id ??
+        ref.read(authStateProvider)?.schoolId ??
+        'global';
+    final storage = ref.read(storageServiceProvider);
+    final sanitizedName =
+        _selectedPhoto!.name.replaceAll(RegExp(r'[^a-zA-Z0-9._-]'), '_');
+    final fileName =
+        '${schoolId}_avatar_${DateTime.now().millisecondsSinceEpoch}_$sanitizedName';
+
+    return storage.uploadFileFromBytes(
+      bucket: 'student-media',
+      bytes: bytes,
+      fileName: fileName,
+      folder: 'avatars/$schoolId',
+      contentType: _selectedPhoto!.extension?.toLowerCase() == 'png'
+          ? 'image/png'
+          : 'image/jpeg',
+    );
+  }
+
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -73,8 +136,12 @@ class _EditStudentScreenState extends ConsumerState<EditStudentScreen> {
 
     try {
       final repo = ref.read(studentRepositoryProvider);
+      final uploadedAvatar = await _uploadPhoto();
+      final avatarUrl = uploadedAvatar ?? _currentAvatarUrl;
       await repo.updateStudent(
         studentId: widget.student.id,
+        admissionNo: _admissionController.text.trim(),
+        fullName: _fullNameController.text.trim(),
         classId: _selectedClassId,
         sectionId: _selectedSectionId,
         status: _status,
@@ -82,9 +149,11 @@ class _EditStudentScreenState extends ConsumerState<EditStudentScreen> {
         gender: _selectedGender,
         bloodGroup: _selectedBloodGroup,
         medicalInfo: _medicalInfo.isEmpty ? null : _medicalInfo,
+        avatarUrl: avatarUrl,
       );
 
       if (!mounted) return;
+      _currentAvatarUrl = avatarUrl;
       ref.invalidate(studentDetailProvider(widget.student.id));
       ref.invalidate(studentsProvider);
       Navigator.of(context).pop();
@@ -103,6 +172,81 @@ class _EditStudentScreenState extends ConsumerState<EditStudentScreen> {
         });
       }
     }
+  }
+
+  Widget _buildBasicInfoCard() {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Basic Information',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _admissionController,
+              decoration: const InputDecoration(
+                labelText: 'Admission Number',
+                border: OutlineInputBorder(),
+              ),
+              validator: (value) =>
+                  value == null || value.trim().isEmpty ? 'Required' : null,
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _fullNameController,
+              decoration: const InputDecoration(
+                labelText: 'Full Name',
+                border: OutlineInputBorder(),
+              ),
+              validator: (value) =>
+                  value == null || value.trim().isEmpty ? 'Required' : null,
+            ),
+            const SizedBox(height: 16),
+            OutlinedButton.icon(
+              icon: const Icon(Icons.photo_camera),
+              label: Text(
+                _selectedPhoto == null ? 'Upload Photo' : 'Change Photo',
+              ),
+              onPressed: _pickPhoto,
+            ),
+            const SizedBox(height: 12),
+            if (_photoPreview != null)
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Image.memory(
+                  _photoPreview!,
+                  height: 150,
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                ),
+              )
+            else if (_currentAvatarUrl != null)
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: CachedNetworkImage(
+                  imageUrl: _currentAvatarUrl!,
+                  height: 150,
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                  placeholder: (context, _) => const SizedBox(
+                    height: 150,
+                    child: Center(child: CircularProgressIndicator()),
+                  ),
+                  errorWidget: (context, _, __) => Container(
+                    height: 150,
+                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                    child: const Center(child: Icon(Icons.broken_image)),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -133,6 +277,8 @@ class _EditStudentScreenState extends ConsumerState<EditStudentScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    _buildBasicInfoCard(),
+                    const SizedBox(height: 16),
                     Card(
                       child: Padding(
                         padding: const EdgeInsets.all(16),

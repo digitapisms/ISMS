@@ -257,7 +257,7 @@ class _AssignmentFormDialogState extends ConsumerState<AssignmentFormDialog> {
                           border: OutlineInputBorder(),
                           prefixIcon: Icon(Icons.category),
                         ),
-                        value: _assignmentType,
+                        initialValue: _assignmentType,
                         items: AssignmentType.values.map((type) {
                           return DropdownMenuItem(
                             value: type,
@@ -280,7 +280,7 @@ class _AssignmentFormDialogState extends ConsumerState<AssignmentFormDialog> {
                             border: OutlineInputBorder(),
                             prefixIcon: Icon(Icons.class_),
                           ),
-                          value: _selectedClassId,
+                          initialValue: _selectedClassId,
                           items: classes.map((cls) {
                             return DropdownMenuItem(
                               value: cls.id,
@@ -305,7 +305,7 @@ class _AssignmentFormDialogState extends ConsumerState<AssignmentFormDialog> {
                             border: OutlineInputBorder(),
                             prefixIcon: Icon(Icons.subject),
                           ),
-                          value: _selectedSubjectId,
+                          initialValue: _selectedSubjectId,
                           items: subjects.map((subject) {
                             return DropdownMenuItem(
                               value: subject.id,

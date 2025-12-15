@@ -203,7 +203,7 @@ class _FeeStructureFormDialogState
                             border: OutlineInputBorder(),
                             prefixIcon: Icon(Icons.category),
                           ),
-                          value: _selectedCategoryId,
+                          initialValue: _selectedCategoryId,
                           items: categories.map((cat) {
                             return DropdownMenuItem(
                               value: cat.id,
@@ -283,7 +283,7 @@ class _FeeStructureFormDialogState
                           border: OutlineInputBorder(),
                           prefixIcon: Icon(Icons.calendar_today),
                         ),
-                        value: _frequency,
+                        initialValue: _frequency,
                         items: FeeFrequency.values.map((freq) {
                           return DropdownMenuItem(
                             value: freq,
@@ -306,7 +306,7 @@ class _FeeStructureFormDialogState
                           border: OutlineInputBorder(),
                           prefixIcon: Icon(Icons.people),
                         ),
-                        value: _applicableTo,
+                        initialValue: _applicableTo,
                         items: FeeApplicability.values.map((app) {
                           return DropdownMenuItem(
                             value: app,
@@ -333,7 +333,7 @@ class _FeeStructureFormDialogState
                                 border: OutlineInputBorder(),
                                 prefixIcon: Icon(Icons.class_),
                               ),
-                              value: _selectedClassId,
+                              initialValue: _selectedClassId,
                               items: classes.map((cls) {
                                 return DropdownMenuItem(
                                   value: cls.id,

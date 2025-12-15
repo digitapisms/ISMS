@@ -36,7 +36,7 @@ class DisciplineRepository {
         .insert(_withSchoolId(incident.toJson()))
         .select()
         .single();
-    return DisciplineIncident.fromJson(response as Map<String, dynamic>);
+    return DisciplineIncident.fromJson(response);
   }
 
   Future<List<DisciplineIncident>> fetchIncidents({
@@ -83,7 +83,7 @@ class DisciplineRepository {
         .eq('school_id', _requireSchoolId())
         .select()
         .single();
-    return DisciplineIncident.fromJson(response as Map<String, dynamic>);
+    return DisciplineIncident.fromJson(response);
   }
 
   Future<void> deleteIncident(String incidentId) async {
@@ -103,7 +103,7 @@ class DisciplineRepository {
         .insert(_withSchoolId(action.toJson()))
         .select()
         .single();
-    return DisciplineAction.fromJson(response as Map<String, dynamic>);
+    return DisciplineAction.fromJson(response);
   }
 
   Future<List<DisciplineAction>> fetchActions({
@@ -138,7 +138,7 @@ class DisciplineRepository {
         .eq('school_id', _requireSchoolId())
         .select()
         .single();
-    return DisciplineAction.fromJson(response as Map<String, dynamic>);
+    return DisciplineAction.fromJson(response);
   }
 
   Future<void> deleteAction(String actionId) async {

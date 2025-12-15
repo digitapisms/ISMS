@@ -61,7 +61,7 @@ class _TeacherTimetableTabState extends ConsumerState<TeacherTimetableTab> {
                       border: OutlineInputBorder(),
                       prefixIcon: Icon(Icons.person),
                     ),
-                    value: _selectedTeacherId,
+                    initialValue: _selectedTeacherId,
                     items: teachers.map((teacher) {
                       return DropdownMenuItem(
                         value: teacher.id,

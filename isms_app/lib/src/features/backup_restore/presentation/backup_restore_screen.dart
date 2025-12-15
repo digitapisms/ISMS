@@ -339,7 +339,7 @@ class _BackupRestoreScreenState extends ConsumerState<BackupRestoreScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               DropdownButtonFormField<BackupFrequency>(
-                value: selectedFrequency,
+                initialValue: selectedFrequency,
                 decoration: const InputDecoration(
                   labelText: 'Frequency',
                   border: OutlineInputBorder(),
@@ -497,7 +497,7 @@ class _BackupRestoreScreenState extends ConsumerState<BackupRestoreScreen> {
   Widget _buildInfoCard(BuildContext context) {
     return Card(
       elevation: 0,
-      color: Theme.of(context).colorScheme.surfaceVariant,
+      color: Theme.of(context).colorScheme.surfaceContainerHighest,
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Row(

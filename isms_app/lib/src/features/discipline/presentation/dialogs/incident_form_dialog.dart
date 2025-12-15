@@ -136,7 +136,7 @@ class _IncidentFormDialogState extends ConsumerState<IncidentFormDialog> {
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<IncidentType>(
-                  value: _incidentType,
+                  initialValue: _incidentType,
                   decoration: InputDecoration(
                     labelText: 'Incident Type *',
                     border: OutlineInputBorder(
@@ -157,7 +157,7 @@ class _IncidentFormDialogState extends ConsumerState<IncidentFormDialog> {
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<SeverityLevel>(
-                  value: _severityLevel,
+                  initialValue: _severityLevel,
                   decoration: InputDecoration(
                     labelText: 'Severity Level *',
                     border: OutlineInputBorder(

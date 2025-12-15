@@ -107,7 +107,7 @@ class PTMRepository {
         .insert(noteJson)
         .select()
         .single();
-    final responseMap = response as Map<String, dynamic>;
+    final responseMap = response;
     // Map appointment_id back to meeting_id if needed
     if (responseMap.containsKey('appointment_id') && !responseMap.containsKey('meeting_id')) {
       responseMap['meeting_id'] = responseMap['appointment_id'];

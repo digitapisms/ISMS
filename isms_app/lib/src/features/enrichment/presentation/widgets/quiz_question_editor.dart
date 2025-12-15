@@ -201,7 +201,7 @@ class _QuizQuestionEditorState extends ConsumerState<QuizQuestionEditor> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               DropdownButtonFormField<QuizQuestionType>(
-                value: _questionType,
+                initialValue: _questionType,
                 decoration: const InputDecoration(
                   labelText: 'Question Type *',
                   border: OutlineInputBorder(),

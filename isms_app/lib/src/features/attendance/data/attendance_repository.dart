@@ -46,7 +46,7 @@ class AttendanceRepository {
       throw Exception('Failed to mark attendance');
     }
 
-    return AttendanceRecord.fromMap(response as Map<String, dynamic>);
+    return AttendanceRecord.fromMap(response);
   }
 
   /// Bulk mark attendance for multiple students
@@ -249,7 +249,7 @@ class AttendanceRepository {
       throw Exception('Failed to update attendance');
     }
 
-    return AttendanceRecord.fromMap(response as Map<String, dynamic>);
+    return AttendanceRecord.fromMap(response);
   }
 
   /// Delete attendance record
@@ -269,6 +269,6 @@ class AttendanceRepository {
         .maybeSingle();
 
     if (response == null) return null;
-    return (response as Map<String, dynamic>)['id'] as String?;
+    return (response)['id'] as String?;
   }
 }

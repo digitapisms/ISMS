@@ -116,7 +116,7 @@ class _AnnouncementFormDialogState extends ConsumerState<AnnouncementFormDialog>
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<AnnouncementType>(
-                  value: _announcementType,
+                  initialValue: _announcementType,
                   decoration: const InputDecoration(
                     labelText: 'Type',
                     border: OutlineInputBorder(),
@@ -135,7 +135,7 @@ class _AnnouncementFormDialogState extends ConsumerState<AnnouncementFormDialog>
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<Priority>(
-                  value: _priority,
+                  initialValue: _priority,
                   decoration: const InputDecoration(
                     labelText: 'Priority',
                     border: OutlineInputBorder(),
@@ -154,7 +154,7 @@ class _AnnouncementFormDialogState extends ConsumerState<AnnouncementFormDialog>
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<TargetAudience>(
-                  value: _targetAudience,
+                  initialValue: _targetAudience,
                   decoration: const InputDecoration(
                     labelText: 'Target Audience',
                     border: OutlineInputBorder(),

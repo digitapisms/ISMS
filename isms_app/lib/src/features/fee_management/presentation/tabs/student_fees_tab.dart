@@ -38,7 +38,7 @@ class _StudentFeesTabState extends ConsumerState<StudentFeesTab> {
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.person_outline),
                 ),
-                value: _selectedStudentId,
+                initialValue: _selectedStudentId,
                 items: students.map((student) {
                   return DropdownMenuItem(
                     value: student.id,

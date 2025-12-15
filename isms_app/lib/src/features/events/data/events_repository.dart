@@ -34,7 +34,7 @@ class EventsRepository {
         .insert(_withSchoolId(event.toJson()))
         .select()
         .single();
-    return Event.fromJson(response as Map<String, dynamic>);
+    return Event.fromJson(response);
   }
 
   Future<List<Event>> fetchEvents({
@@ -127,7 +127,7 @@ class EventsRepository {
         .eq('school_id', _requireSchoolId())
         .select()
         .single();
-    return Event.fromJson(response as Map<String, dynamic>);
+    return Event.fromJson(response);
   }
 
   Future<void> deleteEvent(String eventId) async {

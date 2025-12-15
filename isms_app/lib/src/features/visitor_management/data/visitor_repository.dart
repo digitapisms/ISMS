@@ -42,7 +42,7 @@ class VisitorRepository {
         .insert(_withSchoolId(visitor.toJson()))
         .select()
         .single();
-    return Visitor.fromJson(response as Map<String, dynamic>);
+    return Visitor.fromJson(response);
   }
 
   Future<List<Visitor>> fetchVisitors({
@@ -82,7 +82,7 @@ class VisitorRepository {
         .maybeSingle();
     
     if (response == null) return null;
-    return Visitor.fromJson(response as Map<String, dynamic>);
+    return Visitor.fromJson(response);
   }
 
   Future<Visitor> updateVisitor(Visitor visitor) async {
@@ -94,7 +94,7 @@ class VisitorRepository {
         .eq('school_id', _requireSchoolId())
         .select()
         .single();
-    return Visitor.fromJson(response as Map<String, dynamic>);
+    return Visitor.fromJson(response);
   }
 
   // ============================================================
@@ -108,7 +108,7 @@ class VisitorRepository {
         .insert(_withSchoolId(visit.toJson()))
         .select()
         .single();
-    return Visit.fromJson(response as Map<String, dynamic>);
+    return Visit.fromJson(response);
   }
 
   Future<List<Visit>> fetchVisits({
@@ -177,7 +177,7 @@ class VisitorRepository {
         .single();
     
     // Create log entry
-    final visit = Visit.fromJson(response as Map<String, dynamic>);
+    final visit = Visit.fromJson(response);
     await createLog(VisitorLog(
       id: '',
       schoolId: _requireSchoolId(),
@@ -207,7 +207,7 @@ class VisitorRepository {
         .single();
     
     // Create log entry
-    final visit = Visit.fromJson(response as Map<String, dynamic>);
+    final visit = Visit.fromJson(response);
     await createLog(VisitorLog(
       id: '',
       schoolId: _requireSchoolId(),
@@ -232,7 +232,7 @@ class VisitorRepository {
         .insert(_withSchoolId(log.toJson()))
         .select()
         .single();
-    return VisitorLog.fromJson(response as Map<String, dynamic>);
+    return VisitorLog.fromJson(response);
   }
 
   Future<List<VisitorLog>> fetchLogs({
@@ -277,7 +277,7 @@ class VisitorRepository {
         .insert(_withSchoolId(entry.toJson()))
         .select()
         .single();
-    return SecurityEntry.fromJson(response as Map<String, dynamic>);
+    return SecurityEntry.fromJson(response);
   }
 
   Future<List<SecurityEntry>> fetchSecurityEntries({
