@@ -1,0 +1,207 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../application/certificates_providers.dart';
+import '../../domain/certificate.dart';
+import '../../domain/certificate_template.dart';
+import '../../domain/certificate_type.dart';
+import '../../../authentication/application/auth_providers.dart';
+import '../../../student_management/application/student_providers.dart';
+
+class BulkGenerateDialog extends ConsumerStatefulWidget {
+  final CertificateTemplate template;
+
+  const BulkGenerateDialog({
+    super.key,
+    required this.template,
+  });
+
+  @override
+  ConsumerState<BulkGenerateDialog> createState() => _BulkGenerateDialogState();
+}
+
+class _BulkGenerateDialogState extends ConsumerState<BulkGenerateDialog> {
+  final Set<String> _selectedRecipients = {};
+  bool _selectAll = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final studentsAsync = ref.watch(studentsProvider);
+
+    return Dialog(
+      child: Container(
+        width: MediaQuery.of(context).size.width * 0.9,
+        height: MediaQuery.of(context).size.height * 0.8,
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Bulk Generate Certificates',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ],
+            ),
+            const Divider(),
+            CheckboxListTile(
+              title: const Text('Select All'),
+              value: _selectAll,
+              onChanged: (value) {
+                setState(() {
+                  _selectAll = value ?? false;
+                  if (_selectAll) {
+                    studentsAsync.whenData((students) {
+                      _selectedRecipients.clear();
+                      _selectedRecipients.addAll(
+                        students.map((s) => s.id),
+                      );
+                    });
+                  } else {
+                    _selectedRecipients.clear();
+                  }
+                });
+              },
+            ),
+            const Divider(),
+            Expanded(
+              child: studentsAsync.when(
+                data: (students) {
+                  if (students.isEmpty) {
+                    return const Center(
+                      child: Text('No students available'),
+                    );
+                  }
+
+                  return ListView.builder(
+                    itemCount: students.length,
+                    itemBuilder: (context, index) {
+                      final student = students[index];
+                      final isSelected = _selectedRecipients.contains(student.id);
+                      
+                      return CheckboxListTile(
+                        title: Text(student.fullName),
+                        subtitle: Text('Admission: ${student.admissionNo}'),
+                        value: isSelected,
+                        onChanged: (value) {
+                          setState(() {
+                            if (value == true) {
+                              _selectedRecipients.add(student.id);
+                            } else {
+                              _selectedRecipients.remove(student.id);
+                              _selectAll = false;
+                            }
+                          });
+                        },
+                      );
+                    },
+                  );
+                },
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (error, stack) => Center(
+                  child: Text('Error: $error'),
+                ),
+              ),
+            ),
+            const Divider(),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Selected: ${_selectedRecipients.length}',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey[700],
+                  ),
+                ),
+                Row(
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Cancel'),
+                    ),
+                    const SizedBox(width: 8),
+                    ElevatedButton(
+                      onPressed: _selectedRecipients.isEmpty
+                          ? null
+                          : () => _generateBulk(),
+                      child: Text('Generate (${_selectedRecipients.length})'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _generateBulk() async {
+    if (_selectedRecipients.isEmpty) return;
+
+    final repo = ref.read(certificatesRepositoryProvider);
+    final currentUser = ref.read(currentUserProvider).value;
+    if (currentUser?.id == null) return;
+
+    final studentsAsync = ref.read(studentsProvider);
+    final students = await studentsAsync.value;
+    if (students == null) return;
+
+    int successCount = 0;
+    int failCount = 0;
+
+    for (final studentId in _selectedRecipients) {
+      final student = students.firstWhere((s) => s.id == studentId);
+      
+      try {
+        final certificate = Certificate(
+          id: '',
+          schoolId: repo.schoolId ?? '',
+          templateId: widget.template.id,
+          certificateNumber: '',
+          certificateType: widget.template.certificateType,
+          recipientType: RecipientType.student,
+          recipientId: student.id,
+          recipientName: student.fullName,
+          issuedDate: DateTime.now(),
+          issuedBy: currentUser!.id,
+          certificateData: {
+            'student_name': student.fullName,
+            'admission_number': student.admissionNo,
+            'class': student.classId?.toString() ?? '',
+            'section': student.sectionId?.toString() ?? '',
+          },
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        );
+
+        await repo.generateCertificate(certificate);
+        successCount++;
+      } catch (e) {
+        failCount++;
+      }
+    }
+
+    if (mounted) {
+      Navigator.pop(context);
+      ref.invalidate(certificatesProvider);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Generated: $successCount, Failed: $failCount',
+          ),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
+  }
+}
+

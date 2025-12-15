@@ -1,0 +1,156 @@
+-- ============================================================
+-- Supabase Storage Buckets Setup
+-- ============================================================
+-- Note: Storage buckets must be created via Supabase Dashboard
+-- or Supabase Management API. This SQL file provides the
+-- bucket configuration details and RLS policies.
+-- ============================================================
+
+-- ============================================================
+-- BUCKET 1: school-assets
+-- Purpose: Store school logos, branding assets
+-- ============================================================
+
+-- Bucket Configuration (to be created in Supabase Dashboard):
+-- Name: school-assets
+-- Public: true (for public logo access)
+-- File size limit: 5MB
+-- Allowed MIME types: image/jpeg, image/png, image/gif, image/webp
+
+-- RLS Policies for school-assets bucket
+-- Note: These policies are applied automatically when buckets are created
+-- but can be managed via Supabase Dashboard → Storage → Policies
+
+-- Policy: Allow authenticated users to upload to their school's folder
+-- CREATE POLICY "school_assets_upload_own_school"
+-- ON storage.objects FOR INSERT
+-- TO authenticated
+-- WITH CHECK (
+--   bucket_id = 'school-assets' AND
+--   (storage.foldername(name))[1] = 'logos' AND
+--   (storage.foldername(name))[2] = current_user_school_id()::text
+-- );
+
+-- Policy: Allow authenticated users to read public assets
+-- CREATE POLICY "school_assets_select_public"
+-- ON storage.objects FOR SELECT
+-- TO authenticated
+-- USING (bucket_id = 'school-assets');
+
+-- Policy: Allow school admins to delete their school's assets
+-- CREATE POLICY "school_assets_delete_own_school"
+-- ON storage.objects FOR DELETE
+-- TO authenticated
+-- USING (
+--   bucket_id = 'school-assets' AND
+--   (storage.foldername(name))[1] = 'logos' AND
+--   (storage.foldername(name))[2] = current_user_school_id()::text AND
+--   current_user_role() IN ('admin', 'principal', 'super_admin')
+-- );
+
+-- ============================================================
+-- BUCKET 2: student-documents
+-- Purpose: Store student documents, photos, certificates
+-- ============================================================
+
+-- Bucket Configuration (to be created in Supabase Dashboard):
+-- Name: student-documents
+-- Public: false (private documents)
+-- File size limit: 10MB
+-- Allowed MIME types: 
+--   - Images: image/jpeg, image/png, image/gif, image/webp
+--   - Documents: application/pdf, application/msword, application/vnd.openxmlformats-officedocument.wordprocessingml.document
+
+-- RLS Policies for student-documents bucket
+
+-- Policy: Allow authenticated users to upload to their own student folder
+-- CREATE POLICY "student_documents_upload_own"
+-- ON storage.objects FOR INSERT
+-- TO authenticated
+-- WITH CHECK (
+--   bucket_id = 'student-documents' AND
+--   (storage.foldername(name))[1] = 'documents' AND
+--   (
+--     -- Students can upload to their own folder
+--     (storage.foldername(name))[2] IN (
+--       SELECT id::text FROM students 
+--       WHERE user_id = (SELECT id FROM users WHERE auth_id = auth.uid())
+--     )
+--     OR
+--     -- Admins/teachers can upload to any student in their school
+--     (
+--       current_user_role() IN ('admin', 'principal', 'teacher', 'super_admin') AND
+--       (storage.foldername(name))[2] IN (
+--         SELECT id::text FROM students 
+--         WHERE school_id = current_user_school_id()
+--       )
+--     )
+--   )
+-- );
+
+-- Policy: Allow users to read documents for students in their school
+-- CREATE POLICY "student_documents_select_school"
+-- ON storage.objects FOR SELECT
+-- TO authenticated
+-- USING (
+--   bucket_id = 'student-documents' AND
+--   (
+--     -- Students can read their own documents
+--     (storage.foldername(name))[2] IN (
+--       SELECT id::text FROM students 
+--       WHERE user_id = (SELECT id FROM users WHERE auth_id = auth.uid())
+--     )
+--     OR
+--     -- Parents can read their children's documents
+--     (storage.foldername(name))[2] IN (
+--       SELECT student_id::text FROM parent_student_mapping
+--       WHERE parent_id = (SELECT id FROM users WHERE auth_id = auth.uid())
+--     )
+--     OR
+--     -- School staff can read documents for students in their school
+--     (
+--       current_user_role() IN ('admin', 'principal', 'teacher', 'staff', 'super_admin') AND
+--       (storage.foldername(name))[2] IN (
+--         SELECT id::text FROM students 
+--         WHERE school_id = current_user_school_id()
+--       )
+--     )
+--   )
+-- );
+
+-- Policy: Allow admins to delete documents
+-- CREATE POLICY "student_documents_delete_admin"
+-- ON storage.objects FOR DELETE
+-- TO authenticated
+-- USING (
+--   bucket_id = 'student-documents' AND
+--   current_user_role() IN ('admin', 'principal', 'super_admin') AND
+--   (storage.foldername(name))[2] IN (
+--     SELECT id::text FROM students 
+--     WHERE school_id = current_user_school_id()
+--   )
+-- );
+
+-- ============================================================
+-- SETUP INSTRUCTIONS
+-- ============================================================
+-- 
+-- 1. Create Buckets in Supabase Dashboard:
+--    - Go to: Storage → New Bucket
+--    - Create "school-assets" (Public: true)
+--    - Create "student-documents" (Public: false)
+--
+-- 2. Set Bucket Policies:
+--    - Go to: Storage → [bucket] → Policies
+--    - Use the policies defined above (or create via SQL)
+--
+-- 3. Configure File Limits:
+--    - school-assets: 5MB max, image types only
+--    - student-documents: 10MB max, images + documents
+--
+-- 4. Test Upload:
+--    - Use the StorageService in the Flutter app
+--    - Verify files appear in correct folders
+--    - Check RLS policies are working
+-- ============================================================
+
