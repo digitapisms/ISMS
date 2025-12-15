@@ -91,15 +91,40 @@ serve(async (req) => {
       return new Response('ok', { headers: corsHeaders });
     }
 
-    // Get Zoom credentials from environment
-    const zoomAccountId = Deno.env.get('ZOOM_ACCOUNT_ID');
-    const zoomClientId = Deno.env.get('ZOOM_CLIENT_ID');
-    const zoomClientSecret = Deno.env.get('ZOOM_CLIENT_SECRET');
+    // Get Supabase client for database access
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Get Zoom credentials from database (system_settings) or environment variables
+    let zoomAccountId = Deno.env.get('ZOOM_ACCOUNT_ID');
+    let zoomClientId = Deno.env.get('ZOOM_CLIENT_ID');
+    let zoomClientSecret = Deno.env.get('ZOOM_CLIENT_SECRET');
+
+    // If not in environment, try to get from database
+    if (!zoomAccountId || !zoomClientId || !zoomClientSecret) {
+      const { data: settings, error: settingsError } = await supabase
+        .from('system_settings')
+        .select('setting_key, setting_value')
+        .in('setting_key', ['ZOOM_ACCOUNT_ID', 'ZOOM_CLIENT_ID', 'ZOOM_CLIENT_SECRET']);
+
+      if (!settingsError && settings) {
+        for (const setting of settings) {
+          if (setting.setting_key === 'ZOOM_ACCOUNT_ID') {
+            zoomAccountId = setting.setting_value;
+          } else if (setting.setting_key === 'ZOOM_CLIENT_ID') {
+            zoomClientId = setting.setting_value;
+          } else if (setting.setting_key === 'ZOOM_CLIENT_SECRET') {
+            zoomClientSecret = setting.setting_value;
+          }
+        }
+      }
+    }
 
     if (!zoomAccountId || !zoomClientId || !zoomClientSecret) {
       return new Response(
         JSON.stringify({ 
-          error: 'Zoom credentials not configured. Please set ZOOM_ACCOUNT_ID, ZOOM_CLIENT_ID, and ZOOM_CLIENT_SECRET environment variables.' 
+          error: 'Zoom credentials not configured. Please configure Zoom integration in Super Admin settings or set environment variables.' 
         }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );

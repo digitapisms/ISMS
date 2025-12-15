@@ -13,6 +13,7 @@ import '../../subscription/application/subscription_providers.dart';
 import '../../../core/theme/presentation/theme_settings_screen.dart';
 import '../../../core/localization/widgets/language_selector.dart';
 import 'plan_editor_view.dart';
+import 'zoom_integration_screen.dart';
 
 class SuperAdminDashboard extends ConsumerStatefulWidget {
   const SuperAdminDashboard({super.key});
@@ -141,11 +142,26 @@ class _SuperAdminDashboardState extends ConsumerState<SuperAdminDashboard>
           PopupMenuButton<String>(
             icon: const Icon(Icons.account_circle),
             onSelected: (value) {
-              if (value == 'logout') {
+              if (value == 'zoom') {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const ZoomIntegrationScreen(),
+                  ),
+                );
+              } else if (value == 'logout') {
                 _handleLogout();
               }
             },
             itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'zoom',
+                child: ListTile(
+                  leading: Icon(Icons.video_call),
+                  title: Text('Zoom Integration'),
+                  dense: true,
+                ),
+              ),
+              const PopupMenuDivider(),
               const PopupMenuItem(
                 value: 'logout',
                 child: ListTile(
