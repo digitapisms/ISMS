@@ -309,6 +309,31 @@ class _ZoomIntegrationScreenState extends ConsumerState<ZoomIntegrationScreen> {
                   ),
                   const SizedBox(height: 24),
 
+                  // Credential Verification Info
+                  Card(
+                    color: Theme.of(context).colorScheme.surfaceVariant,
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.info_outline,
+                            color: Theme.of(context).colorScheme.primary,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Tip: Copy credentials directly from Zoom Marketplace → Your App → App Credentials. Ensure no extra spaces.',
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
                   // Account ID Field
                   TextFormField(
                     controller: _accountIdController,
@@ -319,16 +344,42 @@ class _ZoomIntegrationScreenState extends ConsumerState<ZoomIntegrationScreen> {
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      helperText: 'Your Zoom Account ID (starts with C-)',
+                      helperText:
+                          'Your Zoom Account ID (starts with C-). Found in Zoom Marketplace → App Credentials',
+                      suffixIcon: _accountIdController.text.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.check_circle, size: 20),
+                              color:
+                                  _accountIdController.text.trim().startsWith(
+                                    'C-',
+                                  )
+                                  ? Colors.green
+                                  : Colors.orange,
+                              onPressed: () {},
+                              tooltip:
+                                  _accountIdController.text.trim().startsWith(
+                                    'C-',
+                                  )
+                                  ? 'Valid format'
+                                  : 'Must start with C-',
+                            )
+                          : null,
                     ),
                     validator: (value) {
                       if (value == null || value.trim().isEmpty) {
                         return 'Account ID is required';
                       }
-                      if (!value.trim().startsWith('C-')) {
-                        return 'Account ID should start with C-';
+                      final trimmed = value.trim();
+                      if (!trimmed.startsWith('C-')) {
+                        return 'Account ID must start with C-';
+                      }
+                      if (trimmed.length < 5) {
+                        return 'Account ID seems too short';
                       }
                       return null;
+                    },
+                    onChanged: (value) {
+                      setState(() {}); // Update suffix icon
                     },
                   ),
                   const SizedBox(height: 16),
@@ -357,36 +408,57 @@ class _ZoomIntegrationScreenState extends ConsumerState<ZoomIntegrationScreen> {
                   // Client Secret Field
                   TextFormField(
                     controller: _clientSecretController,
+                    obscureText: _obscureSecret,
                     decoration: InputDecoration(
                       labelText: 'Zoom Client Secret',
                       hintText: 'Your OAuth Client Secret',
                       prefixIcon: const Icon(Icons.lock),
-                      suffixIcon: IconButton(
-                        icon: Icon(
-                          _obscureSecret
-                              ? Icons.visibility
-                              : Icons.visibility_off,
-                        ),
-                        onPressed: () {
-                          setState(() {
-                            _obscureSecret = !_obscureSecret;
-                          });
-                        },
+                      suffixIcon: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (_clientSecretController.text.isNotEmpty)
+                            IconButton(
+                              icon: const Icon(Icons.check_circle, size: 20),
+                              color:
+                                  _clientSecretController.text.trim().length >=
+                                      10
+                                  ? Colors.green
+                                  : Colors.orange,
+                              onPressed: () {},
+                              tooltip:
+                                  'Length: ${_clientSecretController.text.trim().length}',
+                            ),
+                          IconButton(
+                            icon: Icon(
+                              _obscureSecret
+                                  ? Icons.visibility
+                                  : Icons.visibility_off,
+                            ),
+                            onPressed: () {
+                              setState(() {
+                                _obscureSecret = !_obscureSecret;
+                              });
+                            },
+                          ),
+                        ],
                       ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
+                      border: const OutlineInputBorder(
+                        borderRadius: BorderRadius.all(Radius.circular(8)),
                       ),
-                      helperText: 'OAuth 2.0 Client Secret (keep this secure)',
+                      helperText:
+                          'OAuth 2.0 Client Secret (keep this secure). Usually 32 characters',
                     ),
-                    obscureText: _obscureSecret,
                     validator: (value) {
                       if (value == null || value.trim().isEmpty) {
                         return 'Client Secret is required';
                       }
                       if (value.trim().length < 10) {
-                        return 'Client Secret seems too short';
+                        return 'Client Secret seems too short (usually 32 characters)';
                       }
                       return null;
+                    },
+                    onChanged: (value) {
+                      setState(() {}); // Update suffix icon
                     },
                   ),
                   const SizedBox(height: 24),
@@ -457,25 +529,37 @@ class _ZoomIntegrationScreenState extends ConsumerState<ZoomIntegrationScreen> {
                             context,
                             '1',
                             'Go to Zoom Marketplace',
-                            'Visit marketplace.zoom.us and sign in',
+                            'Visit marketplace.zoom.us and sign in with your Zoom account',
                           ),
                           _buildInstructionStep(
                             context,
                             '2',
-                            'Create OAuth App',
-                            'Click "Develop" → "Build App" → Select "OAuth" → "Server-to-Server OAuth"',
+                            'Navigate to Your App',
+                            'Click "Develop" → "Build App" → Select your "Server-to-Server OAuth" app (or "Manage" → "Created Apps")',
                           ),
                           _buildInstructionStep(
                             context,
                             '3',
-                            'Copy Credentials',
-                            'Copy Account ID, Client ID, and Client Secret',
+                            'Verify App is Activated',
+                            'Go to "Activation" tab → Ensure status is "Activated" (green). If not, click "Activate" and wait.',
                           ),
                           _buildInstructionStep(
                             context,
                             '4',
-                            'Save Here',
-                            'Paste credentials above and click "Save Credentials"',
+                            'Get Credentials',
+                            'Go to "App Credentials" tab → Copy Account ID (starts with C-), Client ID, and Client Secret. Click "Show" if Client Secret is hidden.',
+                          ),
+                          _buildInstructionStep(
+                            context,
+                            '5',
+                            'Verify Scopes',
+                            'Go to "Scopes" tab → Ensure these are added: meeting:write, meeting:read, user:read',
+                          ),
+                          _buildInstructionStep(
+                            context,
+                            '6',
+                            'Save in ISMS',
+                            'Paste credentials above (no extra spaces), click "Save Credentials", then "Test Connection"',
                           ),
                         ],
                       ),

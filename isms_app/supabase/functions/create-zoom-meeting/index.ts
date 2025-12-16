@@ -165,25 +165,56 @@ serve(async (req) => {
     // Get OAuth access token
     // Note: Zoom Server-to-Server OAuth requires the Account ID in the request body
     // and Client ID:Client Secret in Basic Auth header
+    // IMPORTANT: Ensure no extra whitespace or newlines in credentials
     const authString = `${zoomClientId}:${zoomClientSecret}`;
     const basicAuth = btoa(authString);
     
+    // Log credential info (without exposing secrets)
     console.log('Attempting Zoom OAuth with:', {
-      accountId: zoomAccountId.substring(0, 5) + '...',
+      accountId: zoomAccountId.substring(0, 5) + '...' + zoomAccountId.substring(zoomAccountId.length - 3),
+      accountIdLength: zoomAccountId.length,
+      clientIdPreview: zoomClientId.substring(0, 4) + '...' + zoomClientId.substring(zoomClientId.length - 4),
       clientIdLength: zoomClientId.length,
       clientSecretLength: zoomClientSecret.length,
+      authStringLength: authString.length,
     });
 
-    const tokenResponse = await fetch('https://zoom.us/oauth/token', {
+    // Verify credentials are not empty and have expected lengths
+    if (zoomClientId.length < 10 || zoomClientSecret.length < 10) {
+      return new Response(
+        JSON.stringify({ 
+          error: 'Invalid credential lengths. Client ID and Secret should be at least 10 characters.',
+          details: {
+            clientIdLength: zoomClientId.length,
+            clientSecretLength: zoomClientSecret.length,
+          }
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
+
+    // Make OAuth token request
+    const tokenUrl = 'https://zoom.us/oauth/token';
+    const requestBody = new URLSearchParams({
+      grant_type: 'account_credentials',
+      account_id: zoomAccountId,
+    });
+
+    console.log('OAuth request details:', {
+      url: tokenUrl,
+      grantType: 'account_credentials',
+      accountIdLength: zoomAccountId.length,
+      hasClientId: !!zoomClientId,
+      hasClientSecret: !!zoomClientSecret,
+    });
+
+    const tokenResponse = await fetch(tokenUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
         'Authorization': `Basic ${basicAuth}`,
       },
-      body: new URLSearchParams({
-        grant_type: 'account_credentials',
-        account_id: zoomAccountId,
-      }),
+      body: requestBody,
     });
 
     if (!tokenResponse.ok) {
