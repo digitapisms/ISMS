@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../application/online_class_providers.dart';
+import '../domain/online_class_platform.dart';
 import 'tabs/online_classes_tab.dart';
 import 'tabs/upcoming_sessions_tab.dart';
 import 'tabs/session_history_tab.dart';

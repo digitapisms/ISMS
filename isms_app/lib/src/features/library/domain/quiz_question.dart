@@ -1,11 +1,6 @@
 import 'package:equatable/equatable.dart';
 
-enum QuestionType {
-  multipleChoice,
-  trueFalse,
-  shortAnswer,
-  essay,
-}
+enum QuestionType { multipleChoice, trueFalse, shortAnswer, essay }
 
 extension QuestionTypeExtension on QuestionType {
   String get dbValue {
@@ -87,7 +82,7 @@ class QuizQuestion extends Equatable {
       schoolId: map['school_id'] as String,
       resourceId: map['resource_id'] as String,
       questionText: map['question_text'] as String,
-      type: QuestionType.fromDbValue(map['type'] as String),
+      type: QuestionTypeExtension.fromDbValue(map['type'] as String),
       options: List<String>.from(map['options'] as List),
       correctAnswers: List<int>.from(map['correct_answers'] as List),
       explanation: map['explanation'] as String? ?? '',
@@ -121,18 +116,18 @@ class QuizQuestion extends Equatable {
 
   @override
   List<Object?> get props => [
-        id,
-        schoolId,
-        resourceId,
-        questionText,
-        type,
-        options,
-        correctAnswers,
-        explanation,
-        points,
-        timeLimitSeconds,
-        pageNumber,
-        createdAt,
-        updatedAt,
-      ];
+    id,
+    schoolId,
+    resourceId,
+    questionText,
+    type,
+    options,
+    correctAnswers,
+    explanation,
+    points,
+    timeLimitSeconds,
+    pageNumber,
+    createdAt,
+    updatedAt,
+  ];
 }

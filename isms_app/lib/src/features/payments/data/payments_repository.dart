@@ -299,8 +299,9 @@ class PaymentsRepository {
       Map<String, dynamic>.from(transaction),
     );
 
+    // TODO: PaymentTransaction doesn't have providerKey, use providerId or default
     final providerType = PaymentProviderType.values.firstWhere(
-      (type) => type.name == transactionData.providerKey,
+      (type) => type.name == (transactionData.providerId ?? 'cash'),
       orElse: () => PaymentProviderType.cash,
     );
 

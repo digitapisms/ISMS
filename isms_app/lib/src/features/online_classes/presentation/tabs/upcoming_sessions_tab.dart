@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../application/online_class_providers.dart';
+import '../../domain/online_class.dart';
+import '../../domain/online_class_platform.dart';
 import '../../domain/online_class_session.dart';
 
 class UpcomingSessionsTab extends ConsumerWidget {
@@ -44,9 +46,8 @@ class UpcomingSessionsTab extends ConsumerWidget {
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, stack) => Center(
-        child: Text('Error loading upcoming sessions: \$error'),
-      ),
+      error: (error, stack) =>
+          Center(child: Text('Error loading upcoming sessions: \$error')),
     );
   }
 }

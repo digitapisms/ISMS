@@ -6,7 +6,8 @@ import '../../application/payment_providers.dart';
 import '../../domain/payment_filters.dart';
 import '../../domain/payment_transaction.dart';
 import '../../services/export_service.dart';
-import '../dialogs/payment_filter_dialog.dart';
+import '../dialogs/payment_filter_dialog.dart' hide PaymentFilters;
+import '../dialogs/payment_search_dialog.dart';
 import '../screens/transaction_detail_screen.dart';
 
 class PaymentTransactionsTab extends ConsumerStatefulWidget {

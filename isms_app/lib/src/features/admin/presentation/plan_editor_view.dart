@@ -41,11 +41,10 @@ class _PlanEditorViewState extends ConsumerState<PlanEditorView> {
     for (final plan in widget.plans) {
       _featureStates[plan.name] = {};
       _featureLimits[plan.name] = {};
-      for (final mapping in plan.features) {
-        if (mapping.feature != null) {
-          _featureStates[plan.name]![mapping.feature!.id] = mapping.isEnabled;
-          _featureLimits[plan.name]![mapping.feature!.id] = mapping.limitValue;
-        }
+      // Initialize from plan's features map
+      for (final feature in widget.allFeatures) {
+        _featureStates[plan.name]![feature.id] = plan.hasFeature(feature.featureKey);
+        _featureLimits[plan.name]![feature.id] = plan.getFeatureLimit(feature.featureKey);
       }
     }
   }
@@ -67,7 +66,9 @@ class _PlanEditorViewState extends ConsumerState<PlanEditorView> {
         };
       }).toList();
 
-      await repo.updatePlanFeatures(planName: planName, features: features);
+      // TODO: Implement updatePlanFeatures in SubscriptionRepository
+      // await repo.updatePlanFeatures(planName: planName, features: features);
+      throw UnimplementedError('updatePlanFeatures not yet implemented');
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -175,7 +176,7 @@ class _PlanEditorViewState extends ConsumerState<PlanEditorView> {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          '${plan.features.where((f) => f.isEnabled).length} features enabled',
+                          '${plan.features.values.where((v) => v == true).length} features enabled',
                           style: Theme.of(context).textTheme.bodySmall
                               ?.copyWith(
                                 color: isSelected
@@ -260,24 +261,13 @@ class _PlanEditorViewState extends ConsumerState<PlanEditorView> {
                           ),
                           const SizedBox(height: 12),
                           ...features.map((feature) {
-                            // Check if feature has a mapping for this plan
-                            final existingMapping = selectedPlanData.features
-                                .firstWhere(
-                                  (m) => m.featureId == feature.id,
-                                  orElse: () => PlanFeatureMapping(
-                                    id: '',
-                                    planName: _selectedPlan!,
-                                    featureId: feature.id,
-                                    isEnabled: false,
-                                  ),
-                                );
-
+                            // Check if feature is enabled in the plan's features map
                             final isEnabled =
                                 _featureStates[_selectedPlan]?[feature.id] ??
-                                existingMapping.isEnabled;
+                                selectedPlanData.hasFeature(feature.featureKey);
                             final limit =
                                 _featureLimits[_selectedPlan]?[feature.id] ??
-                                existingMapping.limitValue;
+                                selectedPlanData.getFeatureLimit(feature.featureKey);
 
                             return _FeatureRow(
                               feature: feature,

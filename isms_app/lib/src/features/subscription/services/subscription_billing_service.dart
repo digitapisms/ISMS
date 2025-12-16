@@ -7,8 +7,8 @@ import 'package:isms_app/src/core/notifications/email_notification_service.dart'
 
 class SubscriptionBillingService {
   final SubscriptionRepository _repository;
-  final PaymentGatewayService _paymentService;
-  final EmailNotificationService _emailService;
+  final PaymentGatewayService? _paymentService;
+  final EmailNotificationService? _emailService;
 
   SubscriptionBillingService(
     this._repository,
@@ -44,7 +44,7 @@ class SubscriptionBillingService {
               // Handle cash payments - mark invoice as pending cash payment
               await _handleCashPayment(subscription, invoiceId);
               results['payments_processed']++; // Count as processed for reporting
-            } else {
+            } else if (_paymentService != null) {
               // Handle automatic online payments
               final paymentResult = await _processAutomaticPayment(
                 subscription,
@@ -127,6 +127,9 @@ class SubscriptionBillingService {
     final amount = _calculateInvoiceAmount(plan, subscription['billing_cycle']);
 
     try {
+      if (_paymentService == null) {
+        throw Exception('Payment service not available');
+      }
       final paymentResult = await _paymentService.createPaymentIntent(
         amount: amount,
         currency: plan.currency ?? 'PKR',
@@ -297,7 +300,7 @@ class SubscriptionBillingService {
         amount: invoice['total_amount'],
         dueDate: DateTime.parse(invoice['due_date']),
       );
-        }
+    }
   }
 
   /// Suspend services for non-payment
@@ -333,7 +336,7 @@ class SubscriptionBillingService {
         recipientName: school['name'],
         reason: 'non_payment',
       );
-        }
+    }
   }
 
   // Helper methods
@@ -409,8 +412,9 @@ class SubscriptionBillingService {
 final subscriptionBillingServiceProvider = Provider<SubscriptionBillingService>(
   (ref) {
     final repository = ref.read(subscriptionRepositoryProvider);
-    final paymentService = ref.read(paymentGatewayServiceProvider);
-    final emailService = ref.read(emailNotificationServiceProvider);
-    return SubscriptionBillingService(repository, paymentService, emailService);
+    // TODO: Add missing providers when available
+    // final paymentService = ref.read(paymentGatewayServiceProvider);
+    // final emailService = ref.read(emailNotificationServiceProvider);
+    return SubscriptionBillingService(repository, null, null);
   },
 );

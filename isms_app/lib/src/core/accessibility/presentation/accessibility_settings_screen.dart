@@ -187,15 +187,28 @@ class AccessibilitySettingsScreen extends ConsumerWidget {
               ActionChip(
                 label: const Text('Speak Current Screen'),
                 onPressed: () {
-                  final accessibilityService = ref.read(accessibilityServiceProvider);
+                  final accessibilityService = ref.read(
+                    accessibilityServiceProvider,
+                  );
                   final settings = ref.read(accessibilitySettingsProvider);
-                  
+
                   if (settings.textToSpeechEnabled) {
+                    final screenReaderStatus = settings.screenReaderEnabled
+                        ? 'Enabled'
+                        : 'Disabled';
+                    final highContrastStatus = settings.highContrastMode
+                        ? 'Enabled'
+                        : 'Disabled';
+                    final keyboardNavStatus = settings.keyboardNavigation
+                        ? 'Enabled'
+                        : 'Disabled';
+                    final textSizePercent = (settings.textScalingFactor * 100)
+                        .round();
                     accessibilityService.speak(
-                      'Accessibility Settings Screen. Screen Reader: \${settings.screenReaderEnabled ? 'Enabled' : 'Disabled'}. '
-                      'High Contrast Mode: \${settings.highContrastMode ? 'Enabled' : 'Disabled'}. '
-                      'Keyboard Navigation: \${settings.keyboardNavigation ? 'Enabled' : 'Disabled'}. '
-                      'Text Size: \${(settings.textScalingFactor * 100).round()} percent.',
+                      'Accessibility Settings Screen. Screen Reader: $screenReaderStatus. '
+                      'High Contrast Mode: $highContrastStatus. '
+                      'Keyboard Navigation: $keyboardNavStatus. '
+                      'Text Size: $textSizePercent percent.',
                       volume: 0.8,
                       rate: 0.5,
                     );
@@ -212,9 +225,11 @@ class AccessibilitySettingsScreen extends ConsumerWidget {
               ActionChip(
                 label: const Text('Test Screen Reader'),
                 onPressed: () {
-                  final accessibilityService = ref.read(accessibilityServiceProvider);
+                  final accessibilityService = ref.read(
+                    accessibilityServiceProvider,
+                  );
                   final settings = ref.read(accessibilitySettingsProvider);
-                  
+
                   if (settings.screenReaderEnabled) {
                     accessibilityService.speak(
                       'Screen Reader Test. This is a test of the screen reader functionality. '
@@ -239,7 +254,9 @@ class AccessibilitySettingsScreen extends ConsumerWidget {
               ActionChip(
                 label: const Text('Reset to Default'),
                 onPressed: () {
-                  final notifier = ref.read(accessibilitySettingsProvider.notifier);
+                  final notifier = ref.read(
+                    accessibilitySettingsProvider.notifier,
+                  );
                   notifier.updateSettings(const AccessibilitySettings());
 
                   ScaffoldMessenger.of(context).showSnackBar(

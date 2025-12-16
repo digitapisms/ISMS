@@ -38,8 +38,18 @@ class _GradeEntryTabState extends ConsumerState<GradeEntryTab> {
               if (_selectedExamId != null)
                 ElevatedButton.icon(
                   onPressed: () async {
-                    final examAsync = ref.read(examProvider(_selectedExamId!));
-                    final exam = await examAsync.future;
+                    final examAsync = ref.watch(examProvider(_selectedExamId!));
+                    final exam = examAsync.when(
+                      data: (exam) => exam,
+                      loading: () => null,
+                      error: (_, __) => null,
+                    );
+                    if (exam == null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Failed to load exam')),
+                      );
+                      return;
+                    }
                     final result = await showDialog(
                       context: context,
                       builder: (_) => GradeEntryDialog(exam: exam),

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../application/online_class_providers.dart';
 import '../../domain/online_class.dart';
+import '../../domain/online_class_platform.dart';
 
 class OnlineClassesTab extends ConsumerWidget {
   const OnlineClassesTab({super.key});
@@ -18,7 +19,11 @@ class OnlineClassesTab extends ConsumerWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.video_library_outlined, size: 64, color: Colors.grey),
+                Icon(
+                  Icons.video_library_outlined,
+                  size: 64,
+                  color: Colors.grey,
+                ),
                 SizedBox(height: 16),
                 Text(
                   'No online classes yet',
@@ -44,9 +49,8 @@ class OnlineClassesTab extends ConsumerWidget {
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, stack) => Center(
-        child: Text('Error loading online classes: \$error'),
-      ),
+      error: (error, stack) =>
+          Center(child: Text('Error loading online classes: \$error')),
     );
   }
 }
@@ -81,12 +85,14 @@ class _OnlineClassCard extends StatelessWidget {
                   label: Text(
                     onlineClass.isActive ? 'Active' : 'Inactive',
                     style: TextStyle(
-                      color: onlineClass.isActive ? Colors.white : Colors.grey[700],
+                      color: onlineClass.isActive
+                          ? Colors.white
+                          : Colors.grey[700],
                       fontSize: 12,
                     ),
                   ),
-                  backgroundColor: onlineClass.isActive 
-                      ? Theme.of(context).colorScheme.primary 
+                  backgroundColor: onlineClass.isActive
+                      ? Theme.of(context).colorScheme.primary
                       : Colors.grey[300],
                 ),
               ],

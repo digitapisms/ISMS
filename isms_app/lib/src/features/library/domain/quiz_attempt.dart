@@ -1,11 +1,6 @@
 import 'package:equatable/equatable.dart';
 
-enum QuizAttemptStatus {
-  inProgress,
-  completed,
-  submitted,
-  graded,
-}
+enum QuizAttemptStatus { inProgress, completed, submitted, graded }
 
 extension QuizAttemptStatusExtension on QuizAttemptStatus {
   String get dbValue {
@@ -93,7 +88,7 @@ class QuizAttempt extends Equatable {
       schoolId: map['school_id'] as String,
       resourceId: map['resource_id'] as String,
       userId: map['user_id'] as String,
-      status: QuizAttemptStatus.fromDbValue(map['status'] as String),
+      status: QuizAttemptStatusExtension.fromDbValue(map['status'] as String),
       totalQuestions: map['total_questions'] as int,
       correctAnswers: map['correct_answers'] as int,
       score: map['score'] as int,
@@ -135,20 +130,20 @@ class QuizAttempt extends Equatable {
 
   @override
   List<Object?> get props => [
-        id,
-        schoolId,
-        resourceId,
-        userId,
-        status,
-        totalQuestions,
-        correctAnswers,
-        score,
-        maxScore,
-        startedAt,
-        completedAt,
-        submittedAt,
-        gradedAt,
-        timeSpent,
-        answers,
-      ];
+    id,
+    schoolId,
+    resourceId,
+    userId,
+    status,
+    totalQuestions,
+    correctAnswers,
+    score,
+    maxScore,
+    startedAt,
+    completedAt,
+    submittedAt,
+    gradedAt,
+    timeSpent,
+    answers,
+  ];
 }

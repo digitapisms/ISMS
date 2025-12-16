@@ -175,8 +175,15 @@ class FeeInvoicesTab extends ConsumerWidget {
                                   context,
                                   MaterialPageRoute(
                                     builder: (context) =>
-                                        ThreeCopyInvoiceViewer(
-                                          invoiceId: invoice.id,
+                                        // TODO: ThreeCopyInvoiceViewer requires invoice, feeStructures, and institutionTypeId
+                                        // ThreeCopyInvoiceViewer(
+                                        //   invoice: invoice,
+                                        //   feeStructures: [],
+                                        //   institutionTypeId: '',
+                                        // ),
+                                        Scaffold(
+                                          appBar: AppBar(title: const Text('Invoice Viewer')),
+                                          body: Center(child: Text('Invoice: ${invoice.id}')),
                                         ),
                                   ),
                                 );

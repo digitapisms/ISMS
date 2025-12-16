@@ -31,6 +31,24 @@ class _ThreeCopyInvoiceViewerState
   FeeCopyType _selectedCopy = FeeCopyType.studentCopy;
   bool _showAllCopies = false;
 
+  String _getInstitutionTypeDisplayName(String institutionTypeId) {
+    switch (institutionTypeId.toLowerCase()) {
+      case 'school':
+        return 'School';
+      case 'madarsa':
+      case 'madrasa':
+        return 'Madrasa';
+      case 'coaching_center':
+        return 'Coaching Center';
+      case 'tuition_center':
+        return 'Tuition Center';
+      case 'online_institute':
+        return 'Online Institute';
+      default:
+        return 'Institution';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final feeEngine = ref.watch(feeStructureEngineProvider);
@@ -61,18 +79,16 @@ class _ThreeCopyInvoiceViewerState
                       feeStructures: widget.feeStructures,
                       format: _selectedFormat,
                     )
-                  : Future.value({
-                      _selectedCopy: feeEngine
-                          .generateFeeInvoice(
-                            institutionTypeId: widget.institutionTypeId,
-                            invoice: widget.invoice,
-                            feeStructures: widget.feeStructures,
-                            format: _selectedFormat,
-                          )
-                          .then(
-                            (invoice) => {_selectedCopy: invoice},
-                          )[_selectedCopy],
-                    }),
+                  : feeEngine
+                      .generateFeeInvoice(
+                        institutionTypeId: widget.institutionTypeId,
+                        invoice: widget.invoice,
+                        feeStructures: widget.feeStructures,
+                        format: _selectedFormat,
+                      )
+                      .then(
+                        (invoice) => {_selectedCopy: invoice},
+                      ),
               builder: (context, invoiceSnapshot) {
                 if (invoiceSnapshot.connectionState != ConnectionState.done) {
                   return const Center(child: CircularProgressIndicator());
@@ -546,7 +562,7 @@ class _ThreeCopyInvoiceViewerState
         await ThreeCopyInvoicePdfService.generateAndPrintThreeCopies(
           copies: allCopies,
           invoice: widget.invoice,
-          institutionType: academicConfig.institutionType.displayName,
+          institutionType: _getInstitutionTypeDisplayName(academicConfig.institutionTypeId),
           format: _selectedFormat,
         );
       } else {
@@ -555,7 +571,7 @@ class _ThreeCopyInvoiceViewerState
           invoiceData: invoiceData,
           invoice: widget.invoice,
           copyType: _selectedCopy,
-          institutionType: academicConfig.institutionType.displayName,
+          institutionType: _getInstitutionTypeDisplayName(academicConfig.institutionTypeId),
           format: _selectedFormat,
         );
       }

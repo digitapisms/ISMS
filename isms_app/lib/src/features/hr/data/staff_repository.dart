@@ -49,24 +49,24 @@ class StaffRepository {
     String? employmentType,
   }) async {
     final schoolId = _requireSchoolId();
-    
+
     var query = _client
         .from('staff_profiles')
         .select()
         .eq('school_id', schoolId);
-    
+
     if (activeOnly == true) {
       query = query.eq('is_active', true);
     }
-    
+
     if (department != null) {
       query = query.eq('department', department);
     }
-    
+
     if (employmentType != null) {
       query = query.eq('employment_type', employmentType);
     }
-    
+
     final response = await query.order('full_name');
     return response.map((data) => StaffProfile.fromMap(data)).toList();
   }
@@ -94,10 +94,7 @@ class StaffRepository {
 
   Future<void> deleteStaffProfile(String staffId) async {
     _requireSchoolId();
-    await _client
-        .from('staff_profiles')
-        .delete()
-        .eq('id', staffId);
+    await _client.from('staff_profiles').delete().eq('id', staffId);
   }
 
   // ============================================================
@@ -120,18 +117,18 @@ class StaffRepository {
     DateTime? endDate,
   }) async {
     _requireSchoolId();
-    
+
     var query = _client
         .from('staff_attendance')
         .select()
         .eq('staff_id', staffId);
-    
+
     if (startDate != null && endDate != null) {
       query = query
           .gte('attendance_date', startDate.toIso8601String())
           .lte('attendance_date', endDate.toIso8601String());
     }
-    
+
     final response = await query.order('attendance_date', ascending: false);
     return response.map((data) => StaffAttendance.fromMap(data)).toList();
   }
@@ -153,13 +150,16 @@ class StaffRepository {
     DateTime? endDate,
   }) async {
     _requireSchoolId();
-    
-    final response = await _client.rpc('get_staff_attendance_summary', params: {
-      'p_staff_id': staffId,
-      'p_start_date': startDate?.toIso8601String(),
-      'p_end_date': endDate?.toIso8601String(),
-    });
-    
+
+    final response = await _client.rpc(
+      'get_staff_attendance_summary',
+      params: {
+        'p_staff_id': staffId,
+        'p_start_date': startDate?.toIso8601String(),
+        'p_end_date': endDate?.toIso8601String(),
+      },
+    );
+
     return response as Map<String, dynamic>? ?? {};
   }
 
@@ -184,26 +184,26 @@ class StaffRepository {
     DateTime? endDate,
   }) async {
     final schoolId = _requireSchoolId();
-    
+
     var query = _client
         .from('leave_requests')
         .select()
         .eq('school_id', schoolId);
-    
+
     if (staffId != null) {
       query = query.eq('staff_id', staffId);
     }
-    
+
     if (status != null) {
       query = query.eq('status', status);
     }
-    
+
     if (startDate != null && endDate != null) {
       query = query
           .gte('start_date', startDate.toIso8601String())
           .lte('end_date', endDate.toIso8601String());
     }
-    
+
     final response = await query.order('created_at', ascending: false);
     return response.map((data) => LeaveRequest.fromMap(data)).toList();
   }
@@ -219,7 +219,10 @@ class StaffRepository {
     return LeaveRequest.fromMap(response);
   }
 
-  Future<void> approveLeaveRequest(String leaveRequestId, String approvedBy) async {
+  Future<void> approveLeaveRequest(
+    String leaveRequestId,
+    String approvedBy,
+  ) async {
     _requireSchoolId();
     await _client
         .from('leave_requests')
@@ -231,7 +234,11 @@ class StaffRepository {
         .eq('id', leaveRequestId);
   }
 
-  Future<void> rejectLeaveRequest(String leaveRequestId, String rejectedBy, String reason) async {
+  Future<void> rejectLeaveRequest(
+    String leaveRequestId,
+    String rejectedBy,
+    String reason,
+  ) async {
     _requireSchoolId();
     await _client
         .from('leave_requests')
@@ -252,19 +259,20 @@ class StaffRepository {
     final schoolId = _requireSchoolId();
     final response = await _client
         .from('staff_profiles')
-        .select('id', count: CountOption.exact)
+        .select('id')
         .eq('school_id', schoolId)
         .eq('is_active', true);
-    return response.count ?? 0;
+    return response.length;
   }
 
   Future<Map<String, dynamic>> getStaffStatistics() async {
     final schoolId = _requireSchoolId();
-    
-    final response = await _client.rpc('get_staff_statistics', params: {
-      'p_school_id': schoolId,
-    });
-    
+
+    final response = await _client.rpc(
+      'get_staff_statistics',
+      params: {'p_school_id': schoolId},
+    );
+
     return response as Map<String, dynamic>? ?? {};
   }
 }

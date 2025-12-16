@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
-import '../../../application/inventory_providers.dart';
-import '../../../domain/inventory_item.dart';
-import '../../widgets/item_card.dart';
+import '../../application/inventory_providers.dart';
+import '../../domain/inventory_item.dart';
+import '../widgets/item_card.dart';
 
 class ItemDetailsScreen extends ConsumerWidget {
   final String itemId;
@@ -45,7 +45,7 @@ class ItemDetailsScreen extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Item Card Header
-          ItemCard(item: item, onTap: () {}, showDetails: true),
+          ItemCard(item: item, onTap: () {}),
           const SizedBox(height: 24),
 
           // Basic Information
@@ -195,7 +195,7 @@ class ItemDetailsScreen extends ConsumerWidget {
             width: 120,
             child: Text(
               '$label:',
-              style: const TextStyle(
+              style: TextStyle(
                 fontWeight: FontWeight.bold,
                 color: Colors.grey[700],
               ),

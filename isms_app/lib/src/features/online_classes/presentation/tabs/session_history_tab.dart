@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../application/online_class_providers.dart';
+import '../../domain/online_class_platform.dart';
 import '../../domain/online_class_session.dart';
 
 class SessionHistoryTab extends ConsumerWidget {
@@ -16,7 +17,9 @@ class SessionHistoryTab extends ConsumerWidget {
     return sessionsAsync.when(
       data: (sessions) {
         // Filter completed sessions (placeholder logic)
-        final completedSessions = sessions.where((session) => session.isCompleted).toList();
+        final completedSessions = sessions
+            .where((session) => session.isCompleted)
+            .toList();
 
         if (completedSessions.isEmpty) {
           return const Center(
@@ -49,9 +52,8 @@ class SessionHistoryTab extends ConsumerWidget {
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, stack) => Center(
-        child: Text('Error loading session history: \$error'),
-      ),
+      error: (error, stack) =>
+          Center(child: Text('Error loading session history: \$error')),
     );
   }
 }
@@ -63,8 +65,10 @@ class _SessionHistoryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final attendanceRate = session.actualParticipants > 0 && session.expectedParticipants > 0
-        ? (session.actualParticipants / session.expectedParticipants * 100).toStringAsFixed(1)
+    final attendanceRate =
+        session.actualParticipants > 0 && session.expectedParticipants > 0
+        ? (session.actualParticipants / session.expectedParticipants * 100)
+              .toStringAsFixed(1)
         : '0.0';
 
     return Card(
@@ -140,7 +144,11 @@ class _SessionHistoryCard extends StatelessWidget {
               const SizedBox(height: 8),
               Row(
                 children: [
-                  const Icon(Icons.video_library, size: 16, color: Colors.green),
+                  const Icon(
+                    Icons.video_library,
+                    size: 16,
+                    color: Colors.green,
+                  ),
                   const SizedBox(width: 8),
                   Text(
                     'Recording available',
@@ -232,7 +240,9 @@ class _SessionHistoryCard extends StatelessWidget {
                 Text('Ended: \\${_formatDateTime(session.actualEnd!)}'),
               const SizedBox(height: 8),
               Text('Duration: \\${session.duration.inMinutes} minutes'),
-              Text('Participants: \\${session.actualParticipants}/\\${session.expectedParticipants}'),
+              Text(
+                'Participants: \\${session.actualParticipants}/\\${session.expectedParticipants}',
+              ),
               const SizedBox(height: 8),
               if (session.recordingUrl != null)
                 Text('Recording: \\${session.recordingUrl}'),

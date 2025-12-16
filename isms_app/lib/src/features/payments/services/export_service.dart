@@ -20,7 +20,7 @@ class ExportService {
         transaction.amount.toString(),
         _escapeCsvField(transaction.currency),
         _escapeCsvField(transaction.status),
-        _escapeCsvField(transaction.paymentMethod ?? ''),
+        _escapeCsvField(transaction.providerId ?? ''), // TODO: paymentMethod property doesn't exist
         _escapeCsvField(transaction.initiatedAt != null ? DateFormat('yyyy-MM-dd HH:mm:ss').format(transaction.initiatedAt!) : ''),
         _escapeCsvField(transaction.completedAt != null ? DateFormat('yyyy-MM-dd HH:mm:ss').format(transaction.completedAt!) : ''),
         _escapeCsvField(transaction.errorMessage ?? ''),

@@ -17,9 +17,7 @@ class ThemeSettingsScreen extends ConsumerWidget {
     final colorScheme = theme.colorScheme;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Theme Settings'),
-      ),
+      appBar: AppBar(title: const Text('Theme Settings')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -87,7 +85,7 @@ class ThemeSettingsScreen extends ConsumerWidget {
                   ...AppThemeType.values.map((themeType) {
                     final themeColors = ThemeColors.fromType(themeType);
                     final isSelected = currentTheme == themeType;
-                    
+
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 12),
                       child: InkWell(
@@ -135,19 +133,21 @@ class ThemeSettingsScreen extends ConsumerWidget {
                                   children: [
                                     Text(
                                       themeColors.name,
-                                      style: theme.textTheme.titleMedium?.copyWith(
-                                        fontWeight: FontWeight.w600,
-                                        color: isSelected
-                                            ? themeColors.primary
-                                            : null,
-                                      ),
+                                      style: theme.textTheme.titleMedium
+                                          ?.copyWith(
+                                            fontWeight: FontWeight.w600,
+                                            color: isSelected
+                                                ? themeColors.primary
+                                                : null,
+                                          ),
                                     ),
                                     const SizedBox(height: 4),
                                     Text(
                                       _getThemeDescription(themeType),
-                                      style: theme.textTheme.bodySmall?.copyWith(
-                                        color: colorScheme.onSurfaceVariant,
-                                      ),
+                                      style: theme.textTheme.bodySmall
+                                          ?.copyWith(
+                                            color: colorScheme.onSurfaceVariant,
+                                          ),
                                     ),
                                   ],
                                 ),
@@ -192,7 +192,8 @@ class ThemeSettingsScreen extends ConsumerWidget {
         return 'Calming blue and teal tones';
       case AppThemeType.forest:
         return 'Natural green and emerald shades';
+      case AppThemeType.highContrast:
+        return 'Enhanced visibility for accessibility';
     }
   }
 }
-

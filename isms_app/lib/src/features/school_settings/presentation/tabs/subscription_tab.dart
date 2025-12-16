@@ -4,7 +4,7 @@ import 'package:intl/intl.dart';
 
 import '../../../school_registration/domain/school.dart';
 import '../../../subscription/application/subscription_providers.dart';
-import '../../../../support/presentation/screens/support_contact_form.dart';
+import '../../../support/presentation/screens/support_contact_form.dart';
 
 class SubscriptionTab extends ConsumerWidget {
   const SubscriptionTab({super.key, required this.school});
@@ -114,24 +114,29 @@ class SubscriptionTab extends ConsumerWidget {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  ...plan.features.where((f) => f.isEnabled).map((mapping) {
-                    final feature = mapping.feature;
-                    if (feature == null) return const SizedBox.shrink();
+                  ...plan.features.entries
+                      .where((entry) => entry.value == true)
+                      .map((entry) {
+                        final featureKey = entry.key;
+                        final featureName = featureKey
+                            .split('_')
+                            .map((word) => word.isEmpty 
+                                ? word 
+                                : word[0].toUpperCase() + word.substring(1))
+                            .join(' ');
 
-                    return Card(
-                      margin: const EdgeInsets.only(bottom: 8),
-                      child: ListTile(
-                        leading: Icon(
+                        return Card(
+                          margin: const EdgeInsets.only(bottom: 8),
+                          child: ListTile(
+                            leading: Icon(
                           Icons.check_circle,
                           color: Theme.of(context).colorScheme.primary,
                         ),
-                        title: Text(feature.featureName),
-                        subtitle: feature.description != null
-                            ? Text(feature.description!)
-                            : null,
-                        trailing: mapping.limitValue != null
+                        title: Text(featureName),
+                        subtitle: null, // TODO: Add description if available
+                        trailing: plan.getFeatureLimit(featureKey) != null
                             ? Chip(
-                                label: Text('Limit: ${mapping.limitValue}'),
+                                label: Text('Limit: ${plan.getFeatureLimit(featureKey)}'),
                                 visualDensity: VisualDensity.compact,
                               )
                             : const Chip(

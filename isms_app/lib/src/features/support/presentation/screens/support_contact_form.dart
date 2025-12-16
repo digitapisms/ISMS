@@ -207,7 +207,7 @@ class _SupportContactFormState extends ConsumerState<SupportContactForm> {
                 validator: (value) {
                   if (value != null && value.isNotEmpty) {
                     final emailRegex = RegExp(
-                        r'^[a-zA-Z0-9.!#$%&\'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*\$');
+                        r'^[\w\.-]+@[\w\.-]+\.\w+$');
                     if (!emailRegex.hasMatch(value)) {
                       return 'Please enter a valid email address';
                     }
@@ -215,25 +215,25 @@ class _SupportContactFormState extends ConsumerState<SupportContactForm> {
                   return null;
                 },
               ),
-              SizedBox(height = 16),
+              const SizedBox(height: 16),
               TextFormField(
-                controller = _contactPhoneController,
-                decoration = const InputDecoration(
+                controller: _contactPhoneController,
+                decoration: const InputDecoration(
                   labelText: 'Phone Number',
                   border: OutlineInputBorder(),
                   hintText: '+1234567890',
                 ),
-                keyboardType = TextInputType.phone,
+                keyboardType: TextInputType.phone,
               ),
-              SizedBox(height = 24),
+              const SizedBox(height: 24),
 
               // Submit Button
               ElevatedButton(
-                onPressed = _isSubmitting ? null : _submitForm,
-                style = ElevatedButton.styleFrom(
+                onPressed: _isSubmitting ? null : _submitForm,
+                style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
                 ),
-                child = _isSubmitting
+                child: _isSubmitting
                     ? const SizedBox(
                         width: 20,
                         height: 20,
@@ -241,11 +241,11 @@ class _SupportContactFormState extends ConsumerState<SupportContactForm> {
                       )
                     : const Text('Submit Support Request'),
               ),
-              SizedBox(height = 16),
+              const SizedBox(height: 16),
 
               // Support Information
               Card(
-                child = Padding(
+                child: Padding(
                   padding: const EdgeInsets.all(16),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,

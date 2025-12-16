@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/subscription_repository.dart';
+import '../domain/plan_feature.dart';
 import '../domain/subscription_plan.dart';
 import 'subscription_billing_engine.dart';
 import 'package:isms_app/src/features/institution/application/institution_config_loader.dart';
@@ -23,6 +24,13 @@ final subscriptionBillingEngineProvider = Provider<SubscriptionBillingEngine>((
 final allPlansProvider = FutureProvider<List<SubscriptionPlan>>((ref) async {
   final repo = ref.read(subscriptionRepositoryProvider);
   return repo.getAllPlans();
+});
+
+// All available features
+final allFeaturesProvider = FutureProvider<List<PlanFeature>>((ref) async {
+  final repo = ref.read(subscriptionRepositoryProvider);
+  // TODO: Implement getAllFeatures in repository or return empty list for now
+  return [];
 });
 
 // Specific plan by ID

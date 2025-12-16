@@ -109,6 +109,18 @@ class SubscriptionPlan extends Equatable {
     return features['${featureKey}_limit'] as int?;
   }
 
+  /// Get display name (capitalized name)
+  String get displayName {
+    if (name.isEmpty) return name;
+    return name[0].toUpperCase() + name.substring(1);
+  }
+
+  /// Get price (alias for pricePerMonth for backward compatibility)
+  double? get price => pricePerMonth;
+
+  /// Get features as a list of entries for iteration
+  List<MapEntry<String, dynamic>> get featuresList => features.entries.toList();
+
   /// Create a copy with updated values
   SubscriptionPlan copyWith({
     String? id,

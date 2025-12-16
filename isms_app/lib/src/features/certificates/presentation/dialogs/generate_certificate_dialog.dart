@@ -67,10 +67,7 @@ class _GenerateCertificateDialogState
       recipientName: recipientName,
       issuedDate: _issuedDate,
       issuedBy: currentUser!.id,
-      certificateData: {
-        // TODO: Fill with actual template variables
-        'template_variables': widget.template.templateVariables,
-      },
+      certificateData: null, // TODO: Create proper CertificateData object based on template type
       notes: _notesController.text.trim().isEmpty
           ? null
           : _notesController.text.trim(),

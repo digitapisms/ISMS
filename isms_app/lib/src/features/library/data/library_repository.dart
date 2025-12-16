@@ -1101,10 +1101,16 @@ class LibraryRepository {
           .eq('reply_id', replyId)
           .eq('user_id', userId);
 
-      // Decrement likes count
+      // Decrement likes count - TODO: Use proper RPC call or fetch current count and decrement
+      final currentReply = await _client
+          .from('annotation_replies')
+          .select('likes_count')
+          .eq('id', replyId)
+          .single();
+      final currentCount = (currentReply['likes_count'] as num?)?.toInt() ?? 0;
       await _client
           .from('annotation_replies')
-          .update({'likes_count': _client.rpc('decrement', {})})
+          .update({'likes_count': currentCount > 0 ? currentCount - 1 : 0})
           .eq('id', replyId);
     } else {
       // Add new like
@@ -1116,10 +1122,16 @@ class LibraryRepository {
         'created_at': DateTime.now().toIso8601String(),
       });
 
-      // Increment likes count
+      // Increment likes count - TODO: Use proper RPC call or fetch current count and increment
+      final currentReply = await _client
+          .from('annotation_replies')
+          .select('likes_count')
+          .eq('id', replyId)
+          .single();
+      final currentCount = (currentReply['likes_count'] as num?)?.toInt() ?? 0;
       await _client
           .from('annotation_replies')
-          .update({'likes_count': _client.rpc('increment', {})})
+          .update({'likes_count': currentCount + 1})
           .eq('id', replyId);
     }
   }
@@ -1198,19 +1210,19 @@ class LibraryRepository {
     int? pageNumber,
   }) async {
     final schoolId = _requireSchoolId();
-    var query = _client
+    var queryBuilder = _client
         .from('quiz_questions')
         .select()
         .eq('school_id', schoolId)
-        .eq('resource_id', resourceId)
-        .order('page_number')
-        .order('created_at');
+        .eq('resource_id', resourceId);
 
     if (pageNumber != null) {
-      query = query.eq('page_number', pageNumber);
+      queryBuilder = queryBuilder.eq('page_number', pageNumber);
     }
 
-    final response = await query;
+    final response = await queryBuilder
+        .order('page_number')
+        .order('created_at');
     return (response as List)
         .map((e) => QuizQuestion.fromMap(e as Map<String, dynamic>))
         .toList();

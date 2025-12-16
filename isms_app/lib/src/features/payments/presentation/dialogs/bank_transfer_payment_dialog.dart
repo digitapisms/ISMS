@@ -104,9 +104,9 @@ class _BankTransferPaymentDialogState
 
     try {
       // Upload receipt file to Supabase storage
+      final filePathParts = _receiptFile!.path.split('/');
       final fileName =
-          'bank_receipt_\${DateTime.now().millisecondsSinceEpoch}_\${_receiptFile!.path.split(' /
-          ').last}';
+          'bank_receipt_${DateTime.now().millisecondsSinceEpoch}_${filePathParts.last}';
       final fileBytes = await _receiptFile!.readAsBytes();
 
       // Upload receipt file to Supabase storage
@@ -115,7 +115,7 @@ class _BankTransferPaymentDialogState
           .uploadBinary(fileName, fileBytes);
 
       // Get public URL for the uploaded file
-      final publicUrlResponse = SupabaseManager.client.storage
+      final publicUrl = SupabaseManager.client.storage
           .from('bank-receipts')
           .getPublicUrl(fileName);
 
@@ -145,7 +145,7 @@ class _BankTransferPaymentDialogState
         'account_number': _accountNumberController.text.trim(),
         'transfer_date': _selectedTransferDate!.toIso8601String().split('T')[0],
         'amount': widget.amount,
-        'receipt_image_url': publicUrlResponse.publicUrl,
+        'receipt_image_url': publicUrl,
         'reference_number': _referenceNumberController.text.trim(),
         'status': 'pending',
       });
@@ -347,8 +347,7 @@ class _BankTransferPaymentDialogState
                                 const SizedBox(height: 8),
                                 Text(
                                   _receiptFile != null
-                                      ? 'Receipt Selected: \${_receiptFile!.path.split(' /
-                                            ').last}'
+                                      ? 'Receipt Selected: ${_receiptFile!.path.split('/').last}'
                                       : 'Upload Bank Receipt',
                                   textAlign: TextAlign.center,
                                   style: TextStyle(

@@ -146,7 +146,7 @@ class _DashboardShellState extends ConsumerState<DashboardShell> {
     ref.read(schoolBrandingProvider.notifier).clear();
   }
 
-  void _handleKeyboardNavigation(RawKeyEvent event, bool isAdmin) {
+  void _handleKeyboardNavigation(KeyEvent event, bool isAdmin) {
     final accessibilitySettings = ref.read(accessibilitySettingsProvider);
 
     if (!accessibilitySettings.keyboardNavigation) {
@@ -349,326 +349,243 @@ class _DashboardShellState extends ConsumerState<DashboardShell> {
         focusNode: FocusNode(),
         onKeyEvent: (event) => _handleKeyboardNavigation(event, isAdmin),
         child: Scaffold(
-        appBar: AppBar(
-          title: Row(
-            children: [
-              if (branding.logoUrl != null)
+          appBar: AppBar(
+            title: Row(
+              children: [
+                if (branding.logoUrl != null)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 12),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.network(
+                        branding.logoUrl!,
+                        width: 32,
+                        height: 32,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                      ),
+                    ),
+                  ),
+                Text(
+                  branding.schoolName ?? 'ILMA Cloud Portal',
+                  style: const TextStyle(fontSize: 20),
+                ),
+              ],
+            ),
+            actions: [
+              if (authUser != null) ...[
+                Semantics(
+                  label: 'Theme settings button',
+                  child: IconButton(
+                    icon: const Icon(Icons.palette_outlined),
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const ThemeSettingsScreen(),
+                        ),
+                      );
+                    },
+                    tooltip: 'Theme Settings',
+                  ),
+                ),
+                const LanguageSelector(),
                 Padding(
-                  padding: const EdgeInsets.only(right: 12),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: Image.network(
-                      branding.logoUrl!,
-                      width: 32,
-                      height: 32,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: Center(
+                    child: Text(
+                      authUser.email,
+                      style: Theme.of(context).textTheme.bodySmall,
                     ),
                   ),
                 ),
-              Text(
-                branding.schoolName ?? 'ILMA Cloud Portal',
-                style: const TextStyle(fontSize: 20),
-              ),
-            ],
-          ),
-          actions: [
-            if (authUser != null) ...[
-              Semantics(
-                label: 'Theme settings button',
-                child: IconButton(
-                  icon: const Icon(Icons.palette_outlined),
-                  onPressed: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => const ThemeSettingsScreen(),
-                      ),
-                    );
-                  },
-                  tooltip: 'Theme Settings',
-                ),
-              ),
-              const LanguageSelector(),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                child: Center(
-                  child: Text(
-                    authUser.email,
-                    style: Theme.of(context).textTheme.bodySmall,
+                Semantics(
+                  label: 'Sign out button',
+                  child: IconButton(
+                    icon: const Icon(Icons.logout),
+                    onPressed: _handleSignOut,
+                    tooltip: 'Sign out',
                   ),
                 ),
-              ),
-              Semantics(
-                label: 'Sign out button',
-                child: IconButton(
-                  icon: const Icon(Icons.logout),
-                  onPressed: _handleSignOut,
-                  tooltip: 'Sign out',
-                ),
-              ),
+              ],
             ],
-          ],
-        ),
-        body: Row(
-          children: [
-            if (isWide)
-              NavigationRail(
-                selectedIndex: _selectedIndex,
-                onDestinationSelected: (index) {
-                  setState(() {
-                    _selectedIndex = index;
-                  });
-                },
-                labelType: NavigationRailLabelType.all,
-                destinations: [
-                  Semantics(
-                    label: 'Students section',
-                    child: const NavigationRailDestination(
+          ),
+          body: Row(
+            children: [
+              if (isWide)
+                NavigationRail(
+                  selectedIndex: _selectedIndex,
+                  onDestinationSelected: (index) {
+                    setState(() {
+                      _selectedIndex = index;
+                    });
+                  },
+                  labelType: NavigationRailLabelType.all,
+                  destinations: [
+                    const NavigationRailDestination(
                       icon: Icon(Icons.school_outlined),
                       selectedIcon: Icon(Icons.school),
                       label: Text('Students'),
                     ),
-                  ),
-                  if (isAdmin) ...[
-                    Semantics(
-                      label: 'Classes management section',
-                      child: const NavigationRailDestination(
+                    if (isAdmin) ...[
+                      const NavigationRailDestination(
                         icon: Icon(Icons.class_outlined),
                         selectedIcon: Icon(Icons.class_),
                         label: Text('Classes'),
                       ),
-                    ),
-                    Semantics(
-                      label: 'Attendance tracking section',
-                      child: const NavigationRailDestination(
+                      const NavigationRailDestination(
                         icon: Icon(Icons.check_circle_outline),
                         selectedIcon: Icon(Icons.check_circle),
                         label: Text('Attendance'),
                       ),
-                    ),
-                    Semantics(
-                      label: 'Staff management section',
-                      child: const NavigationRailDestination(
+                      const NavigationRailDestination(
                         icon: Icon(Icons.group_outlined),
                         selectedIcon: Icon(Icons.group),
                         label: Text('Staff'),
                       ),
-                    ),
-                    Semantics(
-                      label: 'Reports and analytics section',
-                      child: createFeatureBadgedNavigationDestination(
+                      createFeatureBadgedNavigationDestination(
                         icon: const Icon(Icons.bar_chart_outlined),
                         selectedIcon: const Icon(Icons.bar_chart),
                         label: const Text('Reports'),
                         featureKey: 'advanced_reports',
                         ref: ref,
                       ),
-                    ),
-                    Semantics(
-                      label: 'Payments management section',
-                      child: const NavigationRailDestination(
+                      const NavigationRailDestination(
                         icon: Icon(Icons.payment_outlined),
                         selectedIcon: Icon(Icons.payment),
                         label: Text('Payments'),
                       ),
-                    ),
-                    Semantics(
-                      label: 'Fee management section',
-                      child: createFeatureBadgedNavigationDestination(
+                      createFeatureBadgedNavigationDestination(
                         icon: const Icon(Icons.account_balance_wallet_outlined),
                         selectedIcon: const Icon(Icons.account_balance_wallet),
                         label: const Text('Fee Management'),
                         featureKey: 'fee_management',
                         ref: ref,
                       ),
-                    ),
-                    Semantics(
-                      label: 'Examinations management section',
-                      child: createFeatureBadgedNavigationDestination(
+                      createFeatureBadgedNavigationDestination(
                         icon: const Icon(Icons.assignment_outlined),
                         selectedIcon: const Icon(Icons.assignment),
                         label: const Text('Examinations'),
                         featureKey: 'exam_management',
                         ref: ref,
                       ),
-                    ),
-                    Semantics(
-                      label: 'Timetable management section',
-                      child: createFeatureBadgedNavigationDestination(
+                      createFeatureBadgedNavigationDestination(
                         icon: const Icon(Icons.schedule_outlined),
                         selectedIcon: const Icon(Icons.schedule),
                         label: const Text('Timetable'),
                         featureKey: 'timetable_management',
                         ref: ref,
                       ),
-                    ),
-                    Semantics(
-                      label: 'Assignments management section',
-                      child: const NavigationRailDestination(
+                      const NavigationRailDestination(
                         icon: Icon(Icons.assignment_outlined),
                         selectedIcon: Icon(Icons.assignment),
                         label: Text('Assignments'),
                       ),
-                    ),
-                    Semantics(
-                      label: 'Library management section',
-                      child: createFeatureBadgedNavigationDestination(
+                      createFeatureBadgedNavigationDestination(
                         icon: const Icon(Icons.library_books_outlined),
                         selectedIcon: const Icon(Icons.library_books),
                         label: const Text('Library'),
                         featureKey: 'library_management',
                         ref: ref,
                       ),
-                    ),
-                    Semantics(
-                      label: 'Transport management section',
-                      child: createFeatureBadgedNavigationDestination(
+                      createFeatureBadgedNavigationDestination(
                         icon: const Icon(Icons.directions_bus_outlined),
                         selectedIcon: const Icon(Icons.directions_bus),
                         label: const Text('Transport'),
                         featureKey: 'transport_management',
                         ref: ref,
                       ),
-                    ),
-                    Semantics(
-                      label: 'Enrichment activities section',
-                      child: const NavigationRailDestination(
+                      const NavigationRailDestination(
                         icon: Icon(Icons.quiz_outlined),
                         selectedIcon: Icon(Icons.quiz),
                         label: Text('Enrichment'),
                       ),
-                    ),
-                    Semantics(
-                      label: 'AI Tutor assistance section',
-                      child: createFeatureBadgedNavigationDestination(
+                      createFeatureBadgedNavigationDestination(
                         icon: const Icon(Icons.auto_awesome_outlined),
                         selectedIcon: const Icon(Icons.auto_awesome),
                         label: const Text('AI Tutor'),
                         featureKey: 'ai_tutor',
                         ref: ref,
                       ),
-                    ),
-                    Semantics(
-                      label: 'Student applications section',
-                      child: const NavigationRailDestination(
+                      const NavigationRailDestination(
                         icon: Icon(Icons.description_outlined),
                         selectedIcon: Icon(Icons.description),
                         label: Text('Applications'),
                       ),
-                    ),
-                    Semantics(
-                      label: 'Messaging and communication section',
-                      child: const NavigationRailDestination(
+                      const NavigationRailDestination(
                         icon: Icon(Icons.chat_outlined),
                         selectedIcon: Icon(Icons.chat),
                         label: Text('Messaging'),
                       ),
-                    ),
-                    Semantics(
-                      label: 'Certificates and awards section',
-                      child: const NavigationRailDestination(
+                      const NavigationRailDestination(
                         icon: Icon(Icons.workspace_premium_outlined),
                         selectedIcon: Icon(Icons.workspace_premium),
                         label: Text('Certificates'),
                       ),
-                    ),
-                    Semantics(
-                      label: 'Visitor management section',
-                      child: const NavigationRailDestination(
+                      const NavigationRailDestination(
                         icon: Icon(Icons.person_search_outlined),
                         selectedIcon: Icon(Icons.person_search),
                         label: Text('Visitors'),
                       ),
-                    ),
-                    Semantics(
-                      label: 'Events and calendar section',
-                      child: const NavigationRailDestination(
+                      const NavigationRailDestination(
                         icon: Icon(Icons.event_outlined),
                         selectedIcon: Icon(Icons.event),
                         label: Text('Events'),
                       ),
-                    ),
-                    Semantics(
-                      label: 'Discipline and behavior management section',
-                      child: const NavigationRailDestination(
+                      const NavigationRailDestination(
                         icon: Icon(Icons.gavel_outlined),
                         selectedIcon: Icon(Icons.gavel),
                         label: Text('Discipline'),
                       ),
-                    ),
-                    Semantics(
-                      label: 'Documents and file management section',
-                      child: const NavigationRailDestination(
+                      const NavigationRailDestination(
                         icon: Icon(Icons.folder_outlined),
                         selectedIcon: Icon(Icons.folder),
                         label: Text('Documents'),
                       ),
-                    ),
-                    Semantics(
-                      label: 'Parent Teacher Meeting section',
-                      child: const NavigationRailDestination(
+                      const NavigationRailDestination(
                         icon: Icon(Icons.handshake_outlined),
                         selectedIcon: Icon(Icons.handshake),
                         label: Text('PTM'),
                       ),
-                    ),
-                    Semantics(
-                      label: 'Inventory management section',
-                      child: const NavigationRailDestination(
+                      const NavigationRailDestination(
                         icon: Icon(Icons.inventory_2_outlined),
                         selectedIcon: Icon(Icons.inventory_2),
                         label: Text('Inventory'),
                       ),
-                    ),
-                    Semantics(
-                      label: 'Notifications and alerts section',
-                      child: const NavigationRailDestination(
+                      const NavigationRailDestination(
                         icon: Icon(Icons.notifications_outlined),
                         selectedIcon: Icon(Icons.notifications),
                         label: Text('Notifications'),
                       ),
-                    ),
-                    Semantics(
-                      label: 'School settings and configuration section',
-                      child: const NavigationRailDestination(
+                      const NavigationRailDestination(
                         icon: Icon(Icons.settings_outlined),
                         selectedIcon: Icon(Icons.settings),
                         label: Text('Settings'),
                       ),
-                    ),
-                    Semantics(
-                      label: 'Backup and restore section',
-                      child: createFeatureBadgedNavigationDestination(
+                      createFeatureBadgedNavigationDestination(
                         icon: const Icon(Icons.backup_outlined),
                         selectedIcon: const Icon(Icons.backup),
                         label: const Text('Backup'),
                         featureKey: 'backup_restore',
                         ref: ref,
                       ),
-                    ),
-                    Semantics(
-                      label: 'Advanced reports and analytics section',
-                      child: createFeatureBadgedNavigationDestination(
+                      createFeatureBadgedNavigationDestination(
                         icon: const Icon(Icons.insights_outlined),
                         selectedIcon: const Icon(Icons.insights),
                         label: const Text('Advanced Reports'),
                         featureKey: 'advanced_reports',
                         ref: ref,
                       ),
-                    ),
-                    Semantics(
-                      label: 'Performance monitoring and dashboard section',
-                      child: const NavigationRailDestination(
+                      const NavigationRailDestination(
                         icon: Icon(Icons.speed_outlined),
                         selectedIcon: Icon(Icons.speed),
                         label: Text('Performance'),
                       ),
-                    ),
+                    ],
                   ],
-                ],
-              ),
-            Expanded(child: _getScreenForIndex(_selectedIndex, isAdmin)),
-          ],
+                ),
+              Expanded(child: _getScreenForIndex(_selectedIndex, isAdmin)),
+            ],
+          ),
         ),
       ),
     );

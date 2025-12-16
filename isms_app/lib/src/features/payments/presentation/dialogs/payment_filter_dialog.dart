@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../domain/payment_filters.dart';
 
 class PaymentFilterDialog extends StatefulWidget {
   const PaymentFilterDialog({super.key, required this.currentFilters});
@@ -11,55 +12,7 @@ class PaymentFilterDialog extends StatefulWidget {
   State<PaymentFilterDialog> createState() => _PaymentFilterDialogState();
 }
 
-class PaymentFilters {
-  final String? status;
-  final DateTime? startDate;
-  final DateTime? endDate;
-  final double? minAmount;
-  final double? maxAmount;
-  final String? paymentMethod;
-
-  const PaymentFilters({
-    this.status,
-    this.startDate,
-    this.endDate,
-    this.minAmount,
-    this.maxAmount,
-    this.paymentMethod,
-  });
-
-  PaymentFilters copyWith({
-    String? status,
-    DateTime? startDate,
-    DateTime? endDate,
-    double? minAmount,
-    double? maxAmount,
-    String? paymentMethod,
-  }) {
-    return PaymentFilters(
-      status: status ?? this.status,
-      startDate: startDate ?? this.startDate,
-      endDate: endDate ?? this.endDate,
-      minAmount: minAmount ?? this.minAmount,
-      maxAmount: maxAmount ?? this.maxAmount,
-      paymentMethod: paymentMethod ?? this.paymentMethod,
-    );
-  }
-
-  bool get hasFilters {
-    return status != null ||
-        startDate != null ||
-        endDate != null ||
-        minAmount != null ||
-        maxAmount != null ||
-        paymentMethod != null;
-  }
-
-  @override
-  String toString() {
-    return 'PaymentFilters(status: $status, startDate: $startDate, endDate: $endDate, minAmount: $minAmount, maxAmount: $maxAmount, paymentMethod: $paymentMethod)';
-  }
-}
+// PaymentFilters class is imported from domain/payment_filters.dart
 
 class _PaymentFilterDialogState extends State<PaymentFilterDialog> {
   late PaymentFilters _filters;

@@ -6,7 +6,7 @@ import '../../application/fee_providers.dart';
 import '../../domain/fee_invoice.dart';
 import '../../../school_registration/application/school_providers.dart';
 import '../../services/fee_payment_gateway_service.dart';
-import '../../../../payments/services/payment_gateway_service.dart';
+import '../../../payments/services/payment_gateway_service.dart';
 
 class PaymentIntegrationDialog extends ConsumerStatefulWidget {
   const PaymentIntegrationDialog({super.key, required this.invoice});

@@ -74,10 +74,8 @@ class UpgradePromptDialog extends ConsumerWidget {
 
                   return Column(
                     children: availablePlans.map((plan) {
-                      final hasFeature = plan.features.any(
-                        (f) =>
-                            f.feature?.featureKey == featureKey && f.isEnabled,
-                      );
+                      // Check if feature is enabled in the plan's features map
+                      final hasFeature = plan.hasFeature(featureKey);
 
                       return Card(
                         margin: const EdgeInsets.only(bottom: 12),
@@ -144,7 +142,7 @@ class UpgradePromptDialog extends ConsumerWidget {
                                       ),
                                       const SizedBox(height: 4),
                                       Text(
-                                        '${plan.features.where((f) => f.isEnabled).length} features enabled',
+                                        '${plan.features.values.where((v) => v == true).length} features enabled',
                                         style: Theme.of(
                                           context,
                                         ).textTheme.bodySmall,

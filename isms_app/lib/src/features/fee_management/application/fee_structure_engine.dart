@@ -1,24 +1,24 @@
-import 'package:riverpod_annotation/riverpod_annotation.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../institution/application/institution_config_loader.dart';
 import '../../institution/domain/academic_structure.dart';
 import '../domain/fee_invoice.dart';
 import '../domain/fee_structure.dart';
 
-part 'fee_structure_engine.g.dart';
+// part 'fee_structure_engine.g.dart'; // TODO: Generate with build_runner
 
 /// Enum for different fee structure formats
 enum FeeStructureFormat {
-  standard,      // Traditional school format with detailed breakdown
-  simplified,    // Simplified format for coaching/tuition centers
-  consolidated,  // Consolidated format for madrasas with zakat/charity
+  standard, // Traditional school format with detailed breakdown
+  simplified, // Simplified format for coaching/tuition centers
+  consolidated, // Consolidated format for madrasas with zakat/charity
 }
 
 /// Enum for different copy types
 enum FeeCopyType {
-  studentCopy,   // Copy for student/parent
-  schoolCopy,    // Copy for school records
-  bankCopy,      // Copy for bank processing
+  studentCopy, // Copy for student/parent
+  schoolCopy, // Copy for school records
+  bankCopy, // Copy for bank processing
 }
 
 /// Service for managing institution-specific fee structures and formats
@@ -27,18 +27,43 @@ class FeeStructureEngine {
 
   FeeStructureEngine(this._configLoader);
 
+  String _getInstitutionTypeDisplayName(String institutionTypeId) {
+    switch (institutionTypeId.toLowerCase()) {
+      case 'school':
+        return 'School';
+      case 'madarsa':
+      case 'madrasa':
+        return 'Madrasa';
+      case 'coaching_center':
+        return 'Coaching Center';
+      case 'tuition_center':
+        return 'Tuition Center';
+      case 'online_institute':
+        return 'Online Institute';
+      default:
+        return 'Institution';
+    }
+  }
+
   /// Get supported fee structure formats for a specific institution type
-  Future<List<FeeStructureFormat>> getSupportedFormats(String institutionTypeId) async {
-    final academicConfig = await _configLoader.loadAcademicConfig(institutionTypeId);
-    
-    switch (academicConfig.institutionType) {
-      case InstitutionType.school:
+  Future<List<FeeStructureFormat>> getSupportedFormats(
+    String institutionTypeId,
+  ) async {
+    final academicConfig = await _configLoader.loadAcademicConfig(
+      institutionTypeId,
+    );
+
+    switch (institutionTypeId.toLowerCase()) {
+      case 'school':
         return [FeeStructureFormat.standard, FeeStructureFormat.simplified];
-      case InstitutionType.madrasa:
+      case 'madarsa':
+      case 'madrasa':
         return [FeeStructureFormat.consolidated, FeeStructureFormat.standard];
-      case InstitutionType.coachingCenter:
-      case InstitutionType.tuitionCenter:
+      case 'coaching_center':
+      case 'tuition_center':
         return [FeeStructureFormat.simplified, FeeStructureFormat.standard];
+      default:
+        return [FeeStructureFormat.standard];
     }
   }
 
@@ -49,8 +74,10 @@ class FeeStructureEngine {
     required List<FeeStructure> feeStructures,
     required FeeStructureFormat format,
   }) async {
-    final academicConfig = await _configLoader.loadAcademicConfig(institutionTypeId);
-    
+    final academicConfig = await _configLoader.loadAcademicConfig(
+      institutionTypeId,
+    );
+
     return _formatInvoice(invoice, feeStructures, format, academicConfig);
   }
 
@@ -61,27 +88,49 @@ class FeeStructureEngine {
     required List<FeeStructure> feeStructures,
     required FeeStructureFormat format,
   }) async {
-    final academicConfig = await _configLoader.loadAcademicConfig(institutionTypeId);
-    
+    final academicConfig = await _configLoader.loadAcademicConfig(
+      institutionTypeId,
+    );
+
     return {
-      FeeCopyType.studentCopy: _formatStudentCopy(invoice, feeStructures, format, academicConfig),
-      FeeCopyType.schoolCopy: _formatSchoolCopy(invoice, feeStructures, format, academicConfig),
-      FeeCopyType.bankCopy: _formatBankCopy(invoice, feeStructures, format, academicConfig),
+      FeeCopyType.studentCopy: _formatStudentCopy(
+        invoice,
+        feeStructures,
+        format,
+        academicConfig,
+      ),
+      FeeCopyType.schoolCopy: _formatSchoolCopy(
+        invoice,
+        feeStructures,
+        format,
+        academicConfig,
+      ),
+      FeeCopyType.bankCopy: _formatBankCopy(
+        invoice,
+        feeStructures,
+        format,
+        academicConfig,
+      ),
     };
   }
 
   /// Get default fee structure format for institution type
   Future<FeeStructureFormat> getDefaultFormat(String institutionTypeId) async {
-    final academicConfig = await _configLoader.loadAcademicConfig(institutionTypeId);
-    
-    switch (academicConfig.institutionType) {
-      case InstitutionType.school:
+    final academicConfig = await _configLoader.loadAcademicConfig(
+      institutionTypeId,
+    );
+
+    switch (institutionTypeId.toLowerCase()) {
+      case 'school':
         return FeeStructureFormat.standard;
-      case InstitutionType.madrasa:
+      case 'madarsa':
+      case 'madrasa':
         return FeeStructureFormat.consolidated;
-      case InstitutionType.coachingCenter:
-      case InstitutionType.tuitionCenter:
+      case 'coaching_center':
+      case 'tuition_center':
         return FeeStructureFormat.simplified;
+      default:
+        return FeeStructureFormat.standard;
     }
   }
 
@@ -91,33 +140,42 @@ class FeeStructureEngine {
     required FeeStructure structure,
   }) async {
     final errors = <String>[];
-    final academicConfig = await _configLoader.loadAcademicConfig(institutionTypeId);
-    
+    final academicConfig = await _configLoader.loadAcademicConfig(
+      institutionTypeId,
+    );
+
     // Institution-specific validation rules
-    switch (academicConfig.institutionType) {
-      case InstitutionType.madrasa:
+    switch (institutionTypeId.toLowerCase()) {
+      case 'madarsa':
+      case 'madrasa':
         // Madrasas typically have lower fee amounts
         if (structure.amount > 5000) {
-          errors.add('Fee amount seems high for madrasa. Typical range: 500-3000 PKR');
+          errors.add(
+            'Fee amount seems high for madrasa. Typical range: 500-3000 PKR',
+          );
         }
         break;
-      case InstitutionType.coachingCenter:
+      case 'coaching_center':
         // Coaching centers may have higher fees
         if (structure.amount < 1000) {
-          errors.add('Fee amount seems low for coaching center. Typical range: 1000-10000 PKR');
+          errors.add(
+            'Fee amount seems low for coaching center. Typical range: 1000-10000 PKR',
+          );
         }
         break;
-      case InstitutionType.tuitionCenter:
+      case 'tuition_center':
         // Tuition centers moderate fees
         if (structure.amount < 500 || structure.amount > 5000) {
-          errors.add('Fee amount outside typical range for tuition center (500-5000 PKR)');
+          errors.add(
+            'Fee amount outside typical range for tuition center (500-5000 PKR)',
+          );
         }
         break;
-      case InstitutionType.school:
+      case 'school':
         // Schools have wide range, no specific validation
         break;
     }
-    
+
     return errors;
   }
 
@@ -145,21 +203,26 @@ class FeeStructureEngine {
   ) {
     return {
       'format': 'standard',
-      'institutionType': config.institutionType.name,
+      'institutionType': config.institutionTypeId,
       'invoiceNumber': invoice.invoiceNumber,
       'issueDate': invoice.issueDate?.toIso8601String(),
       'dueDate': invoice.dueDate.toIso8601String(),
       'studentDetails': _getStudentDetails(),
-      'feeBreakdown': structures.map((s) => {
-        'category': s.name,
-        'amount': s.amount,
-        'description': s.description,
-      }).toList(),
+      'feeBreakdown': structures
+          .map(
+            (s) => {
+              'category': s.name,
+              'amount': s.amount,
+              'description': s.description,
+            },
+          )
+          .toList(),
       'totalAmount': invoice.totalAmount,
       'paidAmount': invoice.paidAmount,
       'outstandingAmount': invoice.outstandingAmount,
       'paymentInstructions': _getPaymentInstructions(config),
-      'footerNote': 'Generated by ${config.institutionType.displayName} Management System',
+      'footerNote':
+          'Generated by ${_getInstitutionTypeDisplayName(config.institutionTypeId)} Management System',
     };
   }
 
@@ -170,13 +233,13 @@ class FeeStructureEngine {
   ) {
     return {
       'format': 'simplified',
-      'institutionType': config.institutionType.name,
+      'institutionType': config.institutionTypeId,
       'invoiceNumber': invoice.invoiceNumber,
       'dueDate': invoice.dueDate.toIso8601String(),
       'totalAmount': invoice.totalAmount,
       'paidAmount': invoice.paidAmount,
       'outstandingAmount': invoice.outstandingAmount,
-      'paymentInstructions': _getSimplifiedInstructions(config),
+      'paymentInstructions': _getSimplifiedInstructions(invoice, config),
       'footerNote': 'Thank you for your payment',
     };
   }
@@ -187,16 +250,24 @@ class FeeStructureEngine {
     InstitutionAcademicConfig config,
   ) {
     final totalZakat = structures
-        .where((s) => s.name.toLowerCase().contains('zakat') || s.name.toLowerCase().contains('charity'))
+        .where(
+          (s) =>
+              s.name.toLowerCase().contains('zakat') ||
+              s.name.toLowerCase().contains('charity'),
+        )
         .fold(0.0, (sum, s) => sum + s.amount);
-    
+
     final totalTuition = structures
-        .where((s) => !s.name.toLowerCase().contains('zakat') && !s.name.toLowerCase().contains('charity'))
+        .where(
+          (s) =>
+              !s.name.toLowerCase().contains('zakat') &&
+              !s.name.toLowerCase().contains('charity'),
+        )
         .fold(0.0, (sum, s) => sum + s.amount);
-    
+
     return {
       'format': 'consolidated',
-      'institutionType': config.institutionType.name,
+      'institutionType': config.institutionTypeId,
       'invoiceNumber': invoice.invoiceNumber,
       'dueDate': invoice.dueDate.toIso8601String(),
       'tuitionAmount': totalTuition,
@@ -204,7 +275,7 @@ class FeeStructureEngine {
       'totalAmount': invoice.totalAmount,
       'paidAmount': invoice.paidAmount,
       'outstandingAmount': invoice.outstandingAmount,
-      'paymentInstructions': _getMadrasaInstructions(),
+      'paymentInstructions': _getMadrasaInstructions(totalTuition, totalZakat),
       'footerNote': 'جزاك الله خيرا - May Allah reward you with goodness',
     };
   }
@@ -267,24 +338,30 @@ class FeeStructureEngine {
   }
 
   String _getPaymentInstructions(InstitutionAcademicConfig config) {
-    switch (config.institutionType) {
-      case InstitutionType.school:
+    switch (config.institutionTypeId.toLowerCase()) {
+      case 'school':
         return 'Please pay by due date to avoid late fees. Payment can be made at school office or through bank transfer.';
-      case InstitutionType.madrasa:
+      case 'madarsa':
+      case 'madrasa':
         return 'Payment can be made at madrasa office. Zakat payments are welcome and will be used for needy students.';
-      case InstitutionType.coachingCenter:
+      case 'coaching_center':
         return 'Payments accepted at reception. Monthly installments available upon request.';
-      case InstitutionType.tuitionCenter:
+      case 'tuition_center':
         return 'Fee payment due by 5th of each month. Late payments may result in service suspension.';
+      default:
+        return 'Please pay by due date to avoid late fees.';
     }
   }
 
-  String _getSimplifiedInstructions(InstitutionAcademicConfig config) {
-    return 'Total Amount: \${invoice.totalAmount.toStringAsFixed(2)}. Due: ${invoice.dueDate.toLocal().toString().split(' ')[0]}';
+  String _getSimplifiedInstructions(
+    FeeInvoice invoice,
+    InstitutionAcademicConfig config,
+  ) {
+    return 'Total Amount: ${invoice.totalAmount.toStringAsFixed(2)}. Due: ${invoice.dueDate.toLocal().toString().split(' ')[0]}';
   }
 
-  String _getMadrasaInstructions() {
-    return 'Tuition: \${totalTuition.toStringAsFixed(2)} | Zakat: \${totalZakat.toStringAsFixed(2)}. May Allah accept your donations.';
+  String _getMadrasaInstructions(double totalTuition, double totalZakat) {
+    return 'Tuition: ${totalTuition.toStringAsFixed(2)} | Zakat: ${totalZakat.toStringAsFixed(2)}. May Allah accept your donations.';
   }
 
   Map<String, dynamic> _getAuditTrail() {
@@ -307,8 +384,7 @@ class FeeStructureEngine {
 }
 
 /// Riverpod provider for the fee structure engine
-@riverpod
-FeeStructureEngine feeStructureEngine(FeeStructureEngineRef ref) {
+final feeStructureEngineProvider = Provider<FeeStructureEngine>((ref) {
   final configLoader = ref.watch(institutionConfigLoaderProvider);
   return FeeStructureEngine(configLoader);
-}
+});

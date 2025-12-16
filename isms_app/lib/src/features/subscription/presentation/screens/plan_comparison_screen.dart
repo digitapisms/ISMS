@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../school_registration/application/school_providers.dart';
+import '../../../school_registration/application/school_providers.dart';
 import '../../application/subscription_providers.dart';
 import '../../domain/subscription_plan.dart';
 
@@ -20,14 +20,14 @@ class PlanComparisonScreen extends ConsumerWidget {
       body: school == null
           ? const Center(child: Text('No school selected'))
           : plansAsync.when(
-              data: (plans) => _buildComparisonTable(plans, school.subscriptionPlan),
+              data: (plans) => _buildComparisonTable(context, plans, school.subscriptionPlan),
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (e, _) => Center(child: Text('Error loading plans: $e')),
             ),
     );
   }
 
-  Widget _buildComparisonTable(List<SubscriptionPlan> plans, String? currentPlan) {
+  Widget _buildComparisonTable(BuildContext context, List<SubscriptionPlan> plans, String? currentPlan) {
     // Get all unique features across all plans
     final allFeatures = _getAllUniqueFeatures(plans);
     
@@ -35,8 +35,8 @@ class PlanComparisonScreen extends ConsumerWidget {
       scrollDirection: Axis.horizontal,
       child: SingleChildScrollView(
         child: DataTable(
-          columns: _buildTableColumns(plans),
-          rows: _buildTableRows(plans, allFeatures, currentPlan),
+          columns: _buildTableColumns(context, plans),
+          rows: _buildTableRows(context, plans, allFeatures, currentPlan),
           headingRowHeight: 80,
           dataRowHeight: 60,
           horizontalMargin: 16,
@@ -46,7 +46,7 @@ class PlanComparisonScreen extends ConsumerWidget {
     );
   }
 
-  List<DataColumn> _buildTableColumns(List<SubscriptionPlan> plans) {
+  List<DataColumn> _buildTableColumns(BuildContext context, List<SubscriptionPlan> plans) {
     return [
       const DataColumn(
         label: Text(
@@ -64,15 +64,15 @@ class PlanComparisonScreen extends ConsumerWidget {
                 style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                 textAlign: TextAlign.center,
               ),
-              if (plan.price != null && plan.price! > 0)
+              if (plan.pricePerMonth > 0)
                 Text(
-                  'Rs. ${plan.price!.toStringAsFixed(0)}',
+                  'Rs. ${plan.pricePerMonth.toStringAsFixed(0)}',
                   style: TextStyle(
                     fontSize: 14,
                     color: Theme.of(context).colorScheme.primary,
                   ),
                 ),
-              if (plan.price == null || plan.price == 0)
+              if (plan.pricePerMonth == 0)
                 const Text(
                   'Free',
                   style: TextStyle(
@@ -88,6 +88,7 @@ class PlanComparisonScreen extends ConsumerWidget {
   }
 
   List<DataRow> _buildTableRows(
+    BuildContext context,
     List<SubscriptionPlan> plans,
     List<String> allFeatures,
     String? currentPlan,
@@ -102,8 +103,8 @@ class PlanComparisonScreen extends ConsumerWidget {
             ),
           ),
           ...plans.map((plan) {
-            final hasFeature = plan.features.any((mapping) => 
-              mapping.feature?.featureName == feature && mapping.isEnabled);
+            // Check if feature is enabled in the plan's features map
+            final hasFeature = plan.hasFeature(feature.toLowerCase().replaceAll(' ', '_'));
             
             return DataCell(
               Center(
@@ -129,9 +130,9 @@ class PlanComparisonScreen extends ConsumerWidget {
             return DataCell(
               Center(
                 child: Text(
-                  plan.price == null || plan.price == 0
+                  plan.pricePerMonth == 0
                       ? 'Free'
-                      : 'Rs. ${plan.price!.toStringAsFixed(0)}',
+                      : 'Rs. ${plan.pricePerMonth.toStringAsFixed(0)}',
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     color: Theme.of(context).colorScheme.primary,
@@ -187,10 +188,11 @@ class PlanComparisonScreen extends ConsumerWidget {
     final allFeatures = <String>{};
     
     for (final plan in plans) {
-      for (final mapping in plan.features) {
-        if (mapping.feature != null) {
-          allFeatures.add(mapping.feature!.featureName);
-        }
+      // Extract feature keys from the features map
+      for (final featureKey in plan.features.keys) {
+        allFeatures.add(featureKey.replaceAll('_', ' ').split(' ').map((word) => 
+          word.isEmpty ? word : word[0].toUpperCase() + word.substring(1)
+        ).join(' '));
       }
     }
     

@@ -1,16 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/auth/auth_provider.dart';
-import '../../../../core/error/error_dialog.dart';
-import '../../../../core/utils/string_utils.dart';
+import '../../../authentication/application/auth_providers.dart';
 import '../../../student_management/domain/student.dart';
-import '../../../student_management/presentation/providers/students_provider.dart';
+import '../../../student_management/application/student_providers.dart';
 import '../../domain/certificate.dart';
 import '../../domain/certificate_template.dart';
 import '../../domain/certificate_type.dart';
 import '../../domain/certificate_data.dart';
-import '../providers/certificates_provider.dart';
+import '../../application/certificates_providers.dart';
 
 class BulkGenerateDialog extends ConsumerStatefulWidget {
   final CertificateTemplate template;
@@ -190,7 +188,7 @@ class _BulkGenerateDialogState extends ConsumerState<BulkGenerateDialog> {
 
     if (mounted) {
       Navigator.pop(context);
-      ref.invalidate(certificatesProvider);
+      ref.invalidate(certificateTemplatesProvider);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Generated: $successCount, Failed: $failCount'),
@@ -207,18 +205,23 @@ class _BulkGenerateDialogState extends ConsumerState<BulkGenerateDialog> {
     switch (certificateType) {
       case CertificateType.leaving:
         return EducationalCertificateData(
-          courseName: student.classId?.toString() ?? 'General Course',
+          programName: student.classId?.toString() ?? 'General Course',
+          programDuration: '1 Year',
+          enrollmentDate: DateTime.now().subtract(const Duration(days: 365)),
           completionDate: DateTime.now(),
-          grade: 'A',
-          percentage: '85%',
-          instituteName: 'School Name',
+          gradeObtained: 'A',
+          totalMarks: '850',
+          division: 'First',
+          institutionName: 'School Name',
           boardUniversity: 'Education Board',
         );
       case CertificateType.achievement:
         return AcademicCertificateData(
-          subject: 'General Achievement',
-          grade: 'A',
-          percentage: '85%',
+          academicYear: '2024-2025',
+          semester: '1',
+          courseName: 'General Achievement',
+          courseCode: 'GEN001',
+          creditsEarned: '3',
           gradePoints: '4.0',
           cgpa: '3.8',
           sgpa: '3.9',
