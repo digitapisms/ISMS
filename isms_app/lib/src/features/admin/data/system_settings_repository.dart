@@ -29,8 +29,7 @@ class SystemSettingsRepository {
 
       final settings = <String, String>{};
       for (final row in response) {
-        settings[row['setting_key'] as String] =
-            row['setting_value'] as String;
+        settings[row['setting_key'] as String] = row['setting_value'] as String;
       }
       return settings;
     } catch (e) {
@@ -64,10 +63,7 @@ class SystemSettingsRepository {
   /// Delete a system setting
   Future<void> deleteSetting(String key) async {
     try {
-      await _client
-          .from('system_settings')
-          .delete()
-          .eq('setting_key', key);
+      await _client.from('system_settings').delete().eq('setting_key', key);
     } catch (e) {
       throw Exception('Failed to delete system setting: $e');
     }
@@ -86,7 +82,9 @@ class SystemSettingsRepository {
         clientSecret: clientSecret ?? '',
       );
     } catch (e) {
-      throw Exception('Failed to get Zoom credentials: $e');
+      // If settings don't exist or query fails, return empty credentials
+      // This allows the UI to show empty fields for initial setup
+      return ZoomCredentials(accountId: '', clientId: '', clientSecret: '');
     }
   }
 
@@ -184,4 +182,3 @@ class ZoomCredentials {
     );
   }
 }
-

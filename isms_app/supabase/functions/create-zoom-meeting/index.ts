@@ -97,9 +97,9 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Get Zoom credentials from database (system_settings) or environment variables
-    let zoomAccountId = Deno.env.get('ZOOM_ACCOUNT_ID');
-    let zoomClientId = Deno.env.get('ZOOM_CLIENT_ID');
-    let zoomClientSecret = Deno.env.get('ZOOM_CLIENT_SECRET');
+    let zoomAccountId = Deno.env.get('ZOOM_ACCOUNT_ID')?.trim();
+    let zoomClientId = Deno.env.get('ZOOM_CLIENT_ID')?.trim();
+    let zoomClientSecret = Deno.env.get('ZOOM_CLIENT_SECRET')?.trim();
 
     // If not in environment, try to get from database
     if (!zoomAccountId || !zoomClientId || !zoomClientSecret) {
@@ -110,23 +110,45 @@ serve(async (req) => {
 
       if (!settingsError && settings) {
         for (const setting of settings) {
+          const value = (setting.setting_value as string)?.trim() || '';
           if (setting.setting_key === 'ZOOM_ACCOUNT_ID') {
-            zoomAccountId = setting.setting_value;
+            zoomAccountId = value;
           } else if (setting.setting_key === 'ZOOM_CLIENT_ID') {
-            zoomClientId = setting.setting_value;
+            zoomClientId = value;
           } else if (setting.setting_key === 'ZOOM_CLIENT_SECRET') {
-            zoomClientSecret = setting.setting_value;
+            zoomClientSecret = value;
           }
         }
       }
     }
 
+    // Trim all credentials to remove any whitespace
+    zoomAccountId = zoomAccountId?.trim() || '';
+    zoomClientId = zoomClientId?.trim() || '';
+    zoomClientSecret = zoomClientSecret?.trim() || '';
+
     if (!zoomAccountId || !zoomClientId || !zoomClientSecret) {
       return new Response(
         JSON.stringify({ 
-          error: 'Zoom credentials not configured. Please configure Zoom integration in Super Admin settings or set environment variables.' 
+          error: 'Zoom credentials not configured. Please configure Zoom integration in Super Admin settings or set environment variables.',
+          details: {
+            hasAccountId: !!zoomAccountId,
+            hasClientId: !!zoomClientId,
+            hasClientSecret: !!zoomClientSecret,
+          }
         }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
+
+    // Validate Account ID format (should start with C-)
+    if (!zoomAccountId.startsWith('C-')) {
+      return new Response(
+        JSON.stringify({ 
+          error: 'Invalid Zoom Account ID format. Account ID should start with "C-"',
+          details: { accountIdLength: zoomAccountId.length }
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );
     }
 
@@ -141,11 +163,22 @@ serve(async (req) => {
     }
 
     // Get OAuth access token
+    // Note: Zoom Server-to-Server OAuth requires the Account ID in the request body
+    // and Client ID:Client Secret in Basic Auth header
+    const authString = `${zoomClientId}:${zoomClientSecret}`;
+    const basicAuth = btoa(authString);
+    
+    console.log('Attempting Zoom OAuth with:', {
+      accountId: zoomAccountId.substring(0, 5) + '...',
+      clientIdLength: zoomClientId.length,
+      clientSecretLength: zoomClientSecret.length,
+    });
+
     const tokenResponse = await fetch('https://zoom.us/oauth/token', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
-        'Authorization': `Basic ${btoa(`${zoomClientId}:${zoomClientSecret}`)}`,
+        'Authorization': `Basic ${basicAuth}`,
       },
       body: new URLSearchParams({
         grant_type: 'account_credentials',
@@ -155,11 +188,40 @@ serve(async (req) => {
 
     if (!tokenResponse.ok) {
       const errorText = await tokenResponse.text();
-      console.error('Zoom OAuth error:', errorText);
+      let errorDetails;
+      try {
+        errorDetails = JSON.parse(errorText);
+      } catch {
+        errorDetails = { raw: errorText };
+      }
+      
+      console.error('Zoom OAuth error:', {
+        status: tokenResponse.status,
+        statusText: tokenResponse.statusText,
+        error: errorDetails,
+      });
+
+      // Provide helpful error messages based on the error
+      let errorMessage = 'Failed to authenticate with Zoom API';
+      if (errorDetails.error === 'invalid_client') {
+        errorMessage = 'Invalid Zoom credentials. Please verify:\n' +
+          '1. Client ID and Client Secret are correct\n' +
+          '2. No extra spaces or characters in credentials\n' +
+          '3. OAuth app is activated in Zoom Marketplace\n' +
+          '4. Account ID starts with "C-" and is correct';
+      } else if (errorDetails.error === 'invalid_grant') {
+        errorMessage = 'Invalid Account ID. Please verify the Account ID is correct and starts with "C-"';
+      }
+
       return new Response(
         JSON.stringify({ 
-          error: 'Failed to authenticate with Zoom API',
-          details: errorText 
+          error: errorMessage,
+          details: errorDetails,
+          troubleshooting: {
+            checkCredentials: 'Verify credentials in Zoom Marketplace → Your App → App Credentials',
+            checkActivation: 'Ensure OAuth app is activated in Zoom Marketplace',
+            checkAccountId: 'Account ID should start with "C-" and match your Zoom account',
+          }
         }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );
