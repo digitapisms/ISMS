@@ -47,14 +47,33 @@ class SystemSettingsRepository {
     try {
       final userId = await _getCurrentUserId();
 
-      await _client.from('system_settings').upsert({
-        'setting_key': key,
-        'setting_value': value,
-        'description': description,
-        'is_encrypted': isEncrypted,
-        'updated_by': userId,
-        'updated_at': DateTime.now().toIso8601String(),
-      }, onConflict: 'setting_key');
+      // Check if setting exists first
+      final existing = await _client
+          .from('system_settings')
+          .select('id')
+          .eq('setting_key', key)
+          .maybeSingle();
+
+      if (existing != null) {
+        // Update existing setting
+        await _client.from('system_settings').update({
+          'setting_value': value,
+          'description': description,
+          'is_encrypted': isEncrypted,
+          'updated_by': userId,
+          'updated_at': DateTime.now().toIso8601String(),
+        }).eq('setting_key', key);
+      } else {
+        // Insert new setting
+        await _client.from('system_settings').insert({
+          'setting_key': key,
+          'setting_value': value,
+          'description': description,
+          'is_encrypted': isEncrypted,
+          'updated_by': userId,
+          'updated_at': DateTime.now().toIso8601String(),
+        });
+      }
     } catch (e) {
       throw Exception('Failed to set system setting: $e');
     }
