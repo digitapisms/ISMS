@@ -91,6 +91,46 @@ After adding the variables, you can verify they're set correctly:
    - Click "Invoke"
    - If successful, you'll get a meeting response with `joinUrl` and `password`
 
+## ⚠️ IMPORTANT: Configure OAuth Scopes in Zoom Marketplace
+
+**Before testing the connection, you MUST configure the required scopes in your Zoom OAuth app.**
+
+### Step-by-Step Scope Configuration:
+
+1. **Go to Zoom Marketplace**
+   - Visit: https://marketplace.zoom.us/
+   - Sign in with your Zoom account
+
+2. **Navigate to Your OAuth App**
+   - Click on **"Manage"** → **"Your Apps"**
+   - Find your Server-to-Server OAuth app
+   - Click on the app to open its settings
+
+3. **Go to Scopes Section**
+   - In the app settings, click on the **"Scopes"** tab or section
+   - This is usually in the left sidebar or under "App Credentials"
+
+4. **Add Required Scopes**
+   - Click **"Add Scopes"** or **"Edit Scopes"**
+   - Search for and add these **required scopes**:
+     - ✅ `meeting:write:meeting` - Allows creating meetings on behalf of users
+     - ✅ `meeting:write:meeting:admin` - Allows creating meetings for any user in the account
+   - **Note:** The `account_credentials` scope is automatically included for Server-to-Server OAuth
+
+5. **Save Changes**
+   - Click **"Save"** or **"Update"**
+   - Wait 2-5 minutes for changes to propagate
+
+6. **Verify Scopes**
+   - Confirm both scopes are listed in your app's scopes
+   - If you don't see these scopes, ensure your Zoom account has administrative privileges
+
+### Why This Is Required
+
+Zoom Server-to-Server OAuth automatically grants all scopes configured in your OAuth app. If the required scopes aren't configured, the access token won't have the necessary permissions, and you'll get errors like:
+- `Invalid access token, does not contain scopes: [meeting:write:meeting, meeting:write:meeting:admin]`
+- Error code `4711`
+
 ## Troubleshooting
 
 ### Variables Not Showing Up
@@ -98,14 +138,28 @@ After adding the variables, you can verify they're set correctly:
 - Refresh the page
 - Check that you saved each variable
 
-### Function Still Fails
+### Function Still Fails with Scope Errors
+- **Most Common Issue:** Missing scopes in Zoom Marketplace
+  - Go to Zoom Marketplace → Your App → Scopes
+  - Add `meeting:write:meeting` and `meeting:write:meeting:admin`
+  - Save and wait 2-5 minutes
+  - Re-test the connection
+
+### Function Still Fails (Other Errors)
 - Verify all three variables are set (not just one or two)
 - Check for typos in variable names (case-sensitive)
 - Check Edge Function logs for detailed error messages
+- Verify OAuth app is **activated** (not just created) in Zoom Marketplace
+- Ensure Account ID starts with "C-" and is correct
 
 ### Can't Find Settings Tab
 - Make sure you're viewing the function details (click on the function name)
 - The Settings tab should be next to "Overview" and "Logs"
+
+### Can't Find Scopes in Zoom Marketplace
+- Ensure you're logged in with an account that has admin privileges
+- Some scopes may only be visible to account administrators
+- Try creating a new OAuth app if scopes are not available
 
 ## Quick Reference
 

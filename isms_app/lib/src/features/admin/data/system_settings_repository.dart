@@ -54,7 +54,7 @@ class SystemSettingsRepository {
         'is_encrypted': isEncrypted,
         'updated_by': userId,
         'updated_at': DateTime.now().toIso8601String(),
-      });
+      }, onConflict: 'setting_key');
     } catch (e) {
       throw Exception('Failed to set system setting: $e');
     }

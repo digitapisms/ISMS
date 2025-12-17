@@ -313,11 +313,76 @@ serve(async (req) => {
 
     if (!meetingResponse.ok) {
       const errorText = await meetingResponse.text();
-      console.error('Zoom API error:', errorText);
+      let errorDetails: any;
+      try {
+        errorDetails = JSON.parse(errorText);
+      } catch {
+        errorDetails = { raw: errorText };
+      }
+      
+      console.error('Zoom API error:', {
+        status: meetingResponse.status,
+        statusText: meetingResponse.statusText,
+        error: errorDetails,
+      });
+
+      // Check for scope-related errors
+      let errorMessage = 'Failed to create Zoom meeting';
+      let troubleshooting: any = {
+        checkCredentials: 'Verify credentials in Zoom Marketplace → Your App → App Credentials',
+        checkActivation: 'Ensure OAuth app is activated in Zoom Marketplace',
+        checkAccountId: 'Account ID should start with "C-" and match your Zoom account',
+      };
+
+      // Check if error is related to missing scopes
+      if (errorDetails.message && typeof errorDetails.message === 'string') {
+        const message = errorDetails.message.toLowerCase();
+        if (message.includes('scope') || message.includes('permission') || message.includes('access token')) {
+          errorMessage = 'Missing required Zoom OAuth scopes. The access token does not have the necessary permissions.';
+          troubleshooting = {
+            ...troubleshooting,
+            fixScopes: {
+              step1: 'Go to Zoom Marketplace: https://marketplace.zoom.us/',
+              step2: 'Navigate to: Your Apps → [Your OAuth App] → Scopes',
+              step3: 'Add the following required scopes:',
+              requiredScopes: [
+                'meeting:write:meeting',
+                'meeting:write:meeting:admin',
+              ],
+              step4: 'Save the changes and wait a few minutes for them to take effect',
+              step5: 'Re-test the connection',
+              note: 'If you don\'t see these scopes, ensure your Zoom account has administrative privileges',
+            },
+            alternative: 'You may need to recreate the OAuth app with the correct scopes enabled',
+          };
+        }
+      }
+
+      // Check error code for scope issues
+      if (errorDetails.code === 4711 || (errorDetails.message && errorDetails.message.includes('scopes'))) {
+        errorMessage = 'Invalid access token: Missing required scopes [meeting:write:meeting, meeting:write:meeting:admin]';
+        troubleshooting = {
+          ...troubleshooting,
+          fixScopes: {
+            step1: 'Go to Zoom Marketplace: https://marketplace.zoom.us/',
+            step2: 'Navigate to: Your Apps → [Your OAuth App] → Scopes',
+            step3: 'Add the following required scopes:',
+            requiredScopes: [
+              'meeting:write:meeting',
+              'meeting:write:meeting:admin',
+            ],
+            step4: 'Save the changes and wait a few minutes for them to take effect',
+            step5: 'Re-test the connection',
+            note: 'If you don\'t see these scopes, ensure your Zoom account has administrative privileges',
+          },
+        };
+      }
+
       return new Response(
         JSON.stringify({ 
-          error: 'Failed to create Zoom meeting',
-          details: errorText 
+          error: errorMessage,
+          details: errorDetails,
+          troubleshooting: troubleshooting,
         }),
         { status: meetingResponse.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );

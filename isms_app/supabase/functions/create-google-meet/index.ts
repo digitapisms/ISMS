@@ -97,15 +97,16 @@ serve(async (req) => {
       );
     }
 
-    // Parse private key JSON
-    let privateKeyObj: any;
+    // Parse private key - can be JSON string (Google Service Account JSON) or PEM string
+    // The createJWT function will handle both formats
+    let privateKeyObj: any = privateKey;
     try {
+      // Try to parse as JSON first (Google Service Account format)
       privateKeyObj = JSON.parse(privateKey);
     } catch (e) {
-      return new Response(
-        JSON.stringify({ error: 'Invalid private key JSON format' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-      );
+      // If parsing fails, it might be a PEM string - pass it as-is
+      // The createJWT function will handle both formats
+      privateKeyObj = privateKey;
     }
 
     // Get OAuth access token using Service Account
@@ -200,7 +201,65 @@ serve(async (req) => {
   }
 });
 
-// Create JWT for Service Account authentication
+// Helper function to base64url encode
+function base64UrlEncode(data: string): string {
+  return btoa(data)
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=/g, '');
+}
+
+// Helper function to convert PEM to ArrayBuffer
+function pemToArrayBuffer(pem: string): ArrayBuffer {
+  const base64 = pem
+    .replace(/-----BEGIN PRIVATE KEY-----/, '')
+    .replace(/-----END PRIVATE KEY-----/, '')
+    .replace(/\s/g, '');
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes.buffer;
+}
+
+// Extract private key from JSON - handles both PEM string and JSON object formats
+function extractPrivateKeyPem(privateKey: any): string {
+  // If it's already a PEM string
+  if (typeof privateKey === 'string') {
+    if (privateKey.includes('BEGIN PRIVATE KEY') || privateKey.includes('BEGIN RSA PRIVATE KEY')) {
+      return privateKey;
+    }
+    // If it's a JSON string, parse it
+    try {
+      const parsed = JSON.parse(privateKey);
+      return extractPrivateKeyPem(parsed);
+    } catch {
+      throw new Error('Invalid private key format: expected PEM string or JSON object');
+    }
+  }
+
+  // If it's a JSON object, check for common fields
+  if (typeof privateKey === 'object' && privateKey !== null) {
+    // Google Service Account JSON format
+    if (privateKey.private_key) {
+      return privateKey.private_key;
+    }
+    // Alternative field names
+    if (privateKey.privateKey) {
+      return privateKey.privateKey;
+    }
+    // If it has RSA components, we'd need to reconstruct PEM (complex)
+    // For now, throw an error asking for PEM format
+    throw new Error(
+      'Private key must be in PEM format. Please provide the private_key field from Google Service Account JSON.'
+    );
+  }
+
+  throw new Error('Invalid private key format');
+}
+
+// Create JWT for Service Account authentication with proper RS256 signing
 async function createJWT(clientEmail: string, privateKey: any, projectId: string): Promise<string> {
   const header = {
     alg: 'RS256',
@@ -216,15 +275,60 @@ async function createJWT(clientEmail: string, privateKey: any, projectId: string
     iat: now,
   };
 
-  // Note: In production, use a proper JWT library
-  // This is a simplified version for demonstration
-  const encodedHeader = btoa(JSON.stringify(header)).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
-  const encodedClaim = btoa(JSON.stringify(claim)).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
+  // Encode header and claim
+  const encodedHeader = base64UrlEncode(JSON.stringify(header));
+  const encodedClaim = base64UrlEncode(JSON.stringify(claim));
   
-  // For actual JWT signing, you would need to use the private key
-  // This requires a crypto library that can handle RSA signing
-  // For now, we'll return a placeholder that needs proper implementation
-  return `${encodedHeader}.${encodedClaim}.signature`;
+  // Create the unsigned JWT
+  const unsignedJWT = `${encodedHeader}.${encodedClaim}`;
+
+  try {
+    // Extract private key PEM from the provided format
+    const privateKeyPem = extractPrivateKeyPem(privateKey);
+
+    // Convert PEM to ArrayBuffer
+    const keyData = pemToArrayBuffer(privateKeyPem);
+
+    // Import the private key using Web Crypto API
+    const cryptoKey = await crypto.subtle.importKey(
+      'pkcs8', // Format for PKCS#8 private key
+      keyData,
+      {
+        name: 'RSASSA-PKCS1-v1_5',
+        hash: 'SHA-256',
+      },
+      false,
+      ['sign']
+    );
+
+    // Sign the JWT using RS256
+    const signature = await crypto.subtle.sign(
+      {
+        name: 'RSASSA-PKCS1-v1_5',
+      },
+      cryptoKey,
+      new TextEncoder().encode(unsignedJWT)
+    );
+
+    // Convert signature ArrayBuffer to base64url
+    const signatureArray = new Uint8Array(signature);
+    // Convert bytes to binary string for btoa (using loop to avoid stack overflow)
+    let binaryString = '';
+    for (let i = 0; i < signatureArray.length; i++) {
+      binaryString += String.fromCharCode(signatureArray[i]);
+    }
+    // Encode to base64url
+    const encodedSignature = base64UrlEncode(binaryString);
+
+    // Return the complete signed JWT
+    return `${unsignedJWT}.${encodedSignature}`;
+  } catch (error) {
+    console.error('Error creating JWT:', error);
+    throw new Error(
+      `Failed to create JWT: ${error instanceof Error ? error.message : String(error)}. ` +
+      `Please ensure the private key is in valid PEM format from Google Service Account JSON.`
+    );
+  }
 }
 
 // Get access token from Google OAuth
