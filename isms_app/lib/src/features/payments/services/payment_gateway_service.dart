@@ -1,10 +1,8 @@
 import 'dart:convert';
 import 'dart:math';
-import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
 import 'package:http/http.dart' as http;
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../../../core/network/supabase_client.dart';
 
@@ -29,9 +27,6 @@ enum PaymentProviderType {
   /// Stripe payment processing - supports international payments, refunds, and subscriptions
   stripe,
 
-  /// PayPal payment processing - supports international payments, refunds, and subscriptions
-  paypal,
-
   /// Bank transfer - supports international transfers with low fees
   bank_transfer,
 
@@ -44,41 +39,14 @@ enum PaymentProviderType {
   /// EasyPaisa (Pakistan) - local payment provider with refund support
   easypaisa,
 
-  /// Razorpay (India) - supports international payments and subscriptions
-  razorpay,
-
   /// Payoneer - international money transfers with business focus
   payoneer,
-
-  /// Wise (formerly TransferWise) - low-cost international transfers
-  wise,
-
-  /// Square - comprehensive payment processing with POS integration
-  square,
-
-  /// Adyen - global payment processing for enterprise
-  adyen,
-
-  /// Braintree (PayPal) - developer-friendly payment processing
-  braintree,
 
   /// 2Checkout (Verifone) - global payment platform
   twocheckout,
 
-  /// Authorize.Net - established payment gateway
-  authorize_net,
-
-  /// Worldpay - global payment processing
-  worldpay,
-
-  /// Amazon Pay - payment service from Amazon
-  amazon_pay,
-
   /// Google Pay - digital wallet platform
   google_pay,
-
-  /// Apple Pay - mobile payment service
-  apple_pay,
 
   /// AlfaPay by Bank Alfalah - Pakistani banking and payment services
   alfapay;
@@ -94,23 +62,13 @@ enum PaymentProviderType {
   bool get supportsRefunds {
     switch (this) {
       case PaymentProviderType.stripe:
-      case PaymentProviderType.paypal:
       case PaymentProviderType.bank_transfer:
       case PaymentProviderType.cash:
       case PaymentProviderType.jazzcash:
       case PaymentProviderType.easypaisa:
-      case PaymentProviderType.razorpay:
       case PaymentProviderType.payoneer:
-      case PaymentProviderType.wise:
-      case PaymentProviderType.square:
-      case PaymentProviderType.adyen:
-      case PaymentProviderType.braintree:
       case PaymentProviderType.twocheckout:
-      case PaymentProviderType.authorize_net:
-      case PaymentProviderType.worldpay:
-      case PaymentProviderType.amazon_pay:
       case PaymentProviderType.google_pay:
-      case PaymentProviderType.apple_pay:
       case PaymentProviderType.alfapay:
         return true;
     }
@@ -127,24 +85,14 @@ enum PaymentProviderType {
   bool get supportsRecurring {
     switch (this) {
       case PaymentProviderType.stripe:
-      case PaymentProviderType.paypal:
-      case PaymentProviderType.razorpay:
       case PaymentProviderType.payoneer:
-      case PaymentProviderType.wise:
-      case PaymentProviderType.square:
-      case PaymentProviderType.adyen:
-      case PaymentProviderType.braintree:
       case PaymentProviderType.twocheckout:
-      case PaymentProviderType.authorize_net:
-      case PaymentProviderType.worldpay:
         return true;
       case PaymentProviderType.bank_transfer:
       case PaymentProviderType.cash:
       case PaymentProviderType.jazzcash:
       case PaymentProviderType.easypaisa:
-      case PaymentProviderType.amazon_pay:
       case PaymentProviderType.google_pay:
-      case PaymentProviderType.apple_pay:
       case PaymentProviderType.alfapay:
         return false;
     }
@@ -161,20 +109,10 @@ enum PaymentProviderType {
   bool get supportsInternational {
     switch (this) {
       case PaymentProviderType.stripe:
-      case PaymentProviderType.paypal:
       case PaymentProviderType.bank_transfer:
-      case PaymentProviderType.razorpay:
       case PaymentProviderType.payoneer:
-      case PaymentProviderType.wise:
-      case PaymentProviderType.square:
-      case PaymentProviderType.adyen:
-      case PaymentProviderType.braintree:
       case PaymentProviderType.twocheckout:
-      case PaymentProviderType.authorize_net:
-      case PaymentProviderType.worldpay:
-      case PaymentProviderType.amazon_pay:
       case PaymentProviderType.google_pay:
-      case PaymentProviderType.apple_pay:
         return true;
       case PaymentProviderType.cash:
       case PaymentProviderType.jazzcash:
@@ -200,8 +138,6 @@ enum PaymentProviderType {
     switch (this) {
       case PaymentProviderType.stripe:
         return 0.029; // 2.9% + $0.30
-      case PaymentProviderType.paypal:
-        return 0.0349; // 3.49% + $0.49
       case PaymentProviderType.bank_transfer:
         return 0.005; // 0.5%
       case PaymentProviderType.cash:
@@ -210,29 +146,11 @@ enum PaymentProviderType {
         return 0.02; // 2% processing fee for JazzCash
       case PaymentProviderType.easypaisa:
         return 0.019; // 1.9% processing fee for EasyPaisa
-      case PaymentProviderType.razorpay:
-        return 0.024; // 2.4%
       case PaymentProviderType.payoneer:
         return 0.03; // 3%
-      case PaymentProviderType.wise:
-        return 0.007; // 0.7%
-      case PaymentProviderType.square:
-        return 0.029; // 2.9% + $0.30
-      case PaymentProviderType.adyen:
-        return 0.12; // 12¢ + interchange
-      case PaymentProviderType.braintree:
-        return 0.029; // 2.9% + $0.30
       case PaymentProviderType.twocheckout:
         return 0.035; // 3.5% + $0.35
-      case PaymentProviderType.authorize_net:
-        return 0.029; // 2.9% + $0.30
-      case PaymentProviderType.worldpay:
-        return 0.025; // 2.5% + $0.30
-      case PaymentProviderType.amazon_pay:
-        return 0.029; // 2.9% + $0.30
       case PaymentProviderType.google_pay:
-        return 0.0; // Fees handled by underlying payment method
-      case PaymentProviderType.apple_pay:
         return 0.0; // Fees handled by underlying payment method
       case PaymentProviderType.alfapay:
         return 0.018; // 1.8% processing fee for AlfaPay
@@ -257,18 +175,8 @@ enum PaymentProviderType {
     switch (this) {
       case PaymentProviderType.stripe:
         return 0.50;
-      case PaymentProviderType.paypal:
-      case PaymentProviderType.razorpay:
-      case PaymentProviderType.wise:
-      case PaymentProviderType.square:
-      case PaymentProviderType.adyen:
-      case PaymentProviderType.braintree:
       case PaymentProviderType.twocheckout:
-      case PaymentProviderType.authorize_net:
-      case PaymentProviderType.worldpay:
-      case PaymentProviderType.amazon_pay:
       case PaymentProviderType.google_pay:
-      case PaymentProviderType.apple_pay:
         return 1.00;
       case PaymentProviderType.bank_transfer:
         return 10.00;
@@ -289,8 +197,6 @@ enum PaymentProviderType {
     switch (this) {
       case PaymentProviderType.stripe:
         return 'Stripe';
-      case PaymentProviderType.paypal:
-        return 'PayPal';
       case PaymentProviderType.bank_transfer:
         return 'Bank Transfer';
       case PaymentProviderType.cash:
@@ -299,30 +205,12 @@ enum PaymentProviderType {
         return 'JazzCash';
       case PaymentProviderType.easypaisa:
         return 'EasyPaisa';
-      case PaymentProviderType.razorpay:
-        return 'Razorpay';
       case PaymentProviderType.payoneer:
         return 'Payoneer';
-      case PaymentProviderType.wise:
-        return 'Wise';
-      case PaymentProviderType.square:
-        return 'Square';
-      case PaymentProviderType.adyen:
-        return 'Adyen';
-      case PaymentProviderType.braintree:
-        return 'Braintree';
       case PaymentProviderType.twocheckout:
         return '2Checkout';
-      case PaymentProviderType.authorize_net:
-        return 'Authorize.Net';
-      case PaymentProviderType.worldpay:
-        return 'Worldpay';
-      case PaymentProviderType.amazon_pay:
-        return 'Amazon Pay';
       case PaymentProviderType.google_pay:
         return 'Google Pay';
-      case PaymentProviderType.apple_pay:
-        return 'Apple Pay';
       case PaymentProviderType.alfapay:
         return 'AlfaPay';
     }
@@ -750,6 +638,50 @@ class PaymentGatewayService {
           metadata: metadata,
         );
 
+      case PaymentProviderType.google_pay:
+        return await _createGooglePayPaymentIntent(
+          amount: amount,
+          currency: currency,
+          reference: reference,
+          customerEmail: customerEmail,
+          customerPhone: customerPhone,
+          metadata: metadata,
+        );
+
+      case PaymentProviderType.alfapay:
+        return await _createAlfaPayPaymentIntent(
+          amount: amount,
+          currency: currency,
+          reference: reference,
+          customerEmail: customerEmail,
+          customerPhone: customerPhone,
+          metadata: metadata,
+        );
+
+      case PaymentProviderType.payoneer:
+        return await _createPayoneerPaymentIntent(
+          amount: amount,
+          currency: currency,
+          reference: reference,
+          customerEmail: customerEmail,
+          customerPhone: customerPhone,
+          metadata: metadata,
+          isSubscription: isSubscription,
+          subscriptionId: subscriptionId,
+        );
+
+      case PaymentProviderType.twocheckout:
+        return await _create2CheckoutPaymentIntent(
+          amount: amount,
+          currency: currency,
+          reference: reference,
+          customerEmail: customerEmail,
+          customerPhone: customerPhone,
+          metadata: metadata,
+          isSubscription: isSubscription,
+          subscriptionId: subscriptionId,
+        );
+
       default:
         // Generic implementation for other providers
         return await _createGenericPaymentIntent(
@@ -1072,8 +1004,6 @@ class PaymentGatewayService {
     switch (provider) {
       case PaymentProviderType.stripe:
         return 'Stripe';
-      case PaymentProviderType.paypal:
-        return 'PayPal';
       case PaymentProviderType.bank_transfer:
         return 'Bank Transfer';
       case PaymentProviderType.cash:
@@ -1082,30 +1012,12 @@ class PaymentGatewayService {
         return 'JazzCash';
       case PaymentProviderType.easypaisa:
         return 'EasyPaisa';
-      case PaymentProviderType.razorpay:
-        return 'Razorpay';
       case PaymentProviderType.payoneer:
         return 'Payoneer';
-      case PaymentProviderType.wise:
-        return 'Wise';
-      case PaymentProviderType.square:
-        return 'Square';
-      case PaymentProviderType.adyen:
-        return 'Adyen';
-      case PaymentProviderType.braintree:
-        return 'Braintree';
       case PaymentProviderType.twocheckout:
         return '2Checkout';
-      case PaymentProviderType.authorize_net:
-        return 'Authorize.Net';
-      case PaymentProviderType.worldpay:
-        return 'Worldpay';
-      case PaymentProviderType.amazon_pay:
-        return 'Amazon Pay';
       case PaymentProviderType.google_pay:
         return 'Google Pay';
-      case PaymentProviderType.apple_pay:
-        return 'Apple Pay';
       case PaymentProviderType.alfapay:
         return 'AlfaPay';
     }
@@ -1447,6 +1359,200 @@ class PaymentGatewayService {
         'customer_phone': customerPhone,
       },
     };
+  }
+
+  Future<Map<String, dynamic>> _createGooglePayPaymentIntent({
+    required double amount,
+    required String currency,
+    required String reference,
+    String? customerEmail,
+    String? customerPhone,
+    Map<String, dynamic>? metadata,
+  }) async {
+    // Google Pay uses underlying payment methods (Stripe, etc.)
+    // This creates a payment token that can be used with other gateways
+    final enhancedMetadata = {
+      ...metadata ?? {},
+      'isms_reference': reference,
+      'created_at': DateTime.now().toIso8601String(),
+      'payment_method': 'google_pay',
+    };
+
+    return await _executeWithRetry(() async {
+      // Google Pay typically requires integration with a payment processor
+      // For now, return a token-based response
+      final tokenId = 'gp_${DateTime.now().millisecondsSinceEpoch}';
+      return {
+        'id': tokenId,
+        'status': 'requires_payment_method',
+        'amount': _convertToSmallestUnit(amount, currency),
+        'currency': currency.toLowerCase(),
+        'reference': reference,
+        'payment_method_type': 'google_pay',
+        'client_secret': tokenId,
+        'metadata': enhancedMetadata,
+      };
+    }, operationName: 'CreateGooglePayPaymentIntent');
+  }
+
+  Future<Map<String, dynamic>> _createAlfaPayPaymentIntent({
+    required double amount,
+    required String currency,
+    required String reference,
+    String? customerEmail,
+    String? customerPhone,
+    Map<String, dynamic>? metadata,
+  }) async {
+    if (currency.toUpperCase() != 'PKR') {
+      throw PaymentGatewayException(
+        'AlfaPay only supports PKR currency',
+        errorCode: 'INVALID_CURRENCY',
+      );
+    }
+
+    final enhancedMetadata = {
+      ...metadata ?? {},
+      'isms_reference': reference,
+      'created_at': DateTime.now().toIso8601String(),
+    };
+
+    final requestBody = {
+      'merchant_id': config.merchantId,
+      'amount': amount.toStringAsFixed(2),
+      'currency': 'PKR',
+      'order_id': reference,
+      'customer_email': customerEmail ?? '',
+      'customer_phone': customerPhone ?? '',
+      'return_url': 'https://your-app.com/payment/return',
+      'cancel_url': 'https://your-app.com/payment/cancel',
+      'metadata': jsonEncode(enhancedMetadata),
+      'signature': _generateAlfaPaySignature(reference, amount),
+    };
+
+    return await _executeWithRetry(() async {
+      final url = config.baseUrl.isNotEmpty
+          ? '${config.baseUrl}/api/v1/payments'
+          : 'https://api.alfapay.com/api/v1/payments';
+      final response = await _client.post(
+        Uri.parse(url),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ${config.apiKey}',
+          'X-Merchant-Id': config.merchantId,
+        },
+        body: jsonEncode(requestBody),
+      );
+      return _handleResponse(response, 'createAlfaPayPaymentIntent');
+    }, operationName: 'CreateAlfaPayPaymentIntent');
+  }
+
+  Future<Map<String, dynamic>> _createPayoneerPaymentIntent({
+    required double amount,
+    required String currency,
+    required String reference,
+    String? customerEmail,
+    String? customerPhone,
+    Map<String, dynamic>? metadata,
+    bool isSubscription = false,
+    String? subscriptionId,
+  }) async {
+    final enhancedMetadata = {
+      ...metadata ?? {},
+      'isms_reference': reference,
+      'created_at': DateTime.now().toIso8601String(),
+      if (isSubscription) 'subscription_id': subscriptionId,
+    };
+
+    final requestBody = {
+      'amount': amount.toStringAsFixed(2),
+      'currency': currency.toUpperCase(),
+      'reference': reference,
+      'customer_email': customerEmail,
+      'customer_phone': customerPhone,
+      'return_url': 'https://your-app.com/payment/return',
+      'cancel_url': 'https://your-app.com/payment/cancel',
+      'metadata': enhancedMetadata,
+      if (isSubscription) 'recurring': true,
+    };
+
+    return await _executeWithRetry(() async {
+      final url = config.baseUrl.isNotEmpty
+          ? '${config.baseUrl}/api/v4/payments'
+          : 'https://api.payoneer.com/v4/payments';
+      final response = await _client.post(
+        Uri.parse(url),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ${config.apiKey}',
+          'X-Partner-Id': config.merchantId,
+        },
+        body: jsonEncode(requestBody),
+      );
+      return _handleResponse(response, 'createPayoneerPaymentIntent');
+    }, operationName: 'CreatePayoneerPaymentIntent');
+  }
+
+  Future<Map<String, dynamic>> _create2CheckoutPaymentIntent({
+    required double amount,
+    required String currency,
+    required String reference,
+    String? customerEmail,
+    String? customerPhone,
+    Map<String, dynamic>? metadata,
+    bool isSubscription = false,
+    String? subscriptionId,
+  }) async {
+    final amountInCents = _convertToSmallestUnit(amount, currency);
+    final enhancedMetadata = {
+      ...metadata ?? {},
+      'isms_reference': reference,
+      'created_at': DateTime.now().toIso8601String(),
+      if (isSubscription) 'subscription_id': subscriptionId,
+    };
+
+    final requestBody = {
+      'sellerId': config.merchantId,
+      'merchantOrderId': reference,
+      'token': config.apiKey,
+      'currency': currency.toUpperCase(),
+      'total': amountInCents.toString(),
+      'billingAddr': {
+        'name': customerEmail ?? 'Customer',
+        'email': customerEmail,
+        'phone': customerPhone,
+      },
+      'items': [
+        {
+          'name': 'ISMS Payment',
+          'description': reference,
+          'price': amountInCents.toString(),
+          'quantity': 1,
+        },
+      ],
+      'metadata': enhancedMetadata,
+    };
+
+    return await _executeWithRetry(() async {
+      final url = config.baseUrl.isNotEmpty
+          ? '${config.baseUrl}/api/orders'
+          : 'https://api.2checkout.com/rest/6.0/orders/';
+      final response = await _client.post(
+        Uri.parse(url),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: jsonEncode(requestBody),
+      );
+      return _handleResponse(response, 'create2CheckoutPaymentIntent');
+    }, operationName: 'Create2CheckoutPaymentIntent');
+  }
+
+  String _generateAlfaPaySignature(String reference, double amount) {
+    final data = '${config.merchantId}$reference${amount.toStringAsFixed(2)}';
+    final bytes = utf8.encode(data + config.apiSecret);
+    final digest = sha256.convert(bytes);
+    return base64Encode(digest.bytes);
   }
 
   Future<Map<String, dynamic>> _createGenericPaymentIntent({

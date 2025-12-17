@@ -1,10 +1,5 @@
 /// Supported online class platforms
-enum OnlineClassPlatform {
-  zoom,
-  googleMeet,
-  microsoftTeams,
-  custom,
-}
+enum OnlineClassPlatform { zoom, googleMeet, custom }
 
 /// Extension methods for OnlineClassPlatform
 extension OnlineClassPlatformX on OnlineClassPlatform {
@@ -15,8 +10,6 @@ extension OnlineClassPlatformX on OnlineClassPlatform {
         return 'Zoom';
       case OnlineClassPlatform.googleMeet:
         return 'Google Meet';
-      case OnlineClassPlatform.microsoftTeams:
-        return 'Microsoft Teams';
       case OnlineClassPlatform.custom:
         return 'Custom Platform';
     }
@@ -29,8 +22,6 @@ extension OnlineClassPlatformX on OnlineClassPlatform {
         return 'assets/icons/zoom.png';
       case OnlineClassPlatform.googleMeet:
         return 'assets/icons/google_meet.png';
-      case OnlineClassPlatform.microsoftTeams:
-        return 'assets/icons/teams.png';
       case OnlineClassPlatform.custom:
         return 'assets/icons/video.png';
     }
@@ -41,7 +32,6 @@ extension OnlineClassPlatformX on OnlineClassPlatform {
     switch (this) {
       case OnlineClassPlatform.zoom:
       case OnlineClassPlatform.googleMeet:
-      case OnlineClassPlatform.microsoftTeams:
         return true;
       case OnlineClassPlatform.custom:
         return false;
@@ -55,8 +45,6 @@ extension OnlineClassPlatformX on OnlineClassPlatform {
         return 'https://marketplace.zoom.us/docs';
       case OnlineClassPlatform.googleMeet:
         return 'https://developers.google.com/meet';
-      case OnlineClassPlatform.microsoftTeams:
-        return 'https://docs.microsoft.com/en-us/microsoftteams/platform';
       case OnlineClassPlatform.custom:
         return '';
     }

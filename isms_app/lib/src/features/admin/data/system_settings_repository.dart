@@ -137,6 +137,57 @@ class SystemSettingsRepository {
     }
   }
 
+  /// Get Google Meet credentials
+  Future<GoogleMeetCredentials> getGoogleMeetCredentials() async {
+    try {
+      final clientEmail = await getSetting('GOOGLE_MEET_CLIENT_EMAIL');
+      final privateKey = await getSetting('GOOGLE_MEET_PRIVATE_KEY');
+      final projectId = await getSetting('GOOGLE_MEET_PROJECT_ID');
+
+      return GoogleMeetCredentials(
+        clientEmail: clientEmail ?? '',
+        privateKey: privateKey ?? '',
+        projectId: projectId ?? '',
+      );
+    } catch (e) {
+      // If settings don't exist or query fails, return empty credentials
+      return GoogleMeetCredentials(
+        clientEmail: '',
+        privateKey: '',
+        projectId: '',
+      );
+    }
+  }
+
+  /// Update Google Meet credentials
+  Future<void> updateGoogleMeetCredentials(
+    GoogleMeetCredentials credentials,
+  ) async {
+    try {
+      // Update database
+      await setSetting(
+        key: 'GOOGLE_MEET_CLIENT_EMAIL',
+        value: credentials.clientEmail,
+        description: 'Google Service Account Email for Google Meet API',
+        isEncrypted: true,
+      );
+      await setSetting(
+        key: 'GOOGLE_MEET_PRIVATE_KEY',
+        value: credentials.privateKey,
+        description: 'Google Service Account Private Key (JSON)',
+        isEncrypted: true,
+      );
+      await setSetting(
+        key: 'GOOGLE_MEET_PROJECT_ID',
+        value: credentials.projectId,
+        description: 'Google Cloud Project ID',
+        isEncrypted: false,
+      );
+    } catch (e) {
+      throw Exception('Failed to update Google Meet credentials: $e');
+    }
+  }
+
   Future<String?> _getCurrentUserId() async {
     final user = _client.auth.currentUser;
     if (user == null) return null;
@@ -179,6 +230,38 @@ class ZoomCredentials {
       accountId: map['accountId'] as String? ?? '',
       clientId: map['clientId'] as String? ?? '',
       clientSecret: map['clientSecret'] as String? ?? '',
+    );
+  }
+}
+
+/// Google Meet credentials model
+class GoogleMeetCredentials {
+  final String clientEmail;
+  final String privateKey;
+  final String projectId;
+
+  GoogleMeetCredentials({
+    required this.clientEmail,
+    required this.privateKey,
+    required this.projectId,
+  });
+
+  bool get isValid =>
+      clientEmail.isNotEmpty && privateKey.isNotEmpty && projectId.isNotEmpty;
+
+  Map<String, dynamic> toMap() {
+    return {
+      'clientEmail': clientEmail,
+      'privateKey': privateKey,
+      'projectId': projectId,
+    };
+  }
+
+  factory GoogleMeetCredentials.fromMap(Map<String, dynamic> map) {
+    return GoogleMeetCredentials(
+      clientEmail: map['clientEmail'] as String? ?? '',
+      privateKey: map['privateKey'] as String? ?? '',
+      projectId: map['projectId'] as String? ?? '',
     );
   }
 }

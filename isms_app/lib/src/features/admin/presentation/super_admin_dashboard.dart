@@ -14,6 +14,7 @@ import '../../../core/theme/presentation/theme_settings_screen.dart';
 import '../../../core/localization/widgets/language_selector.dart';
 import 'plan_editor_view.dart';
 import 'zoom_integration_screen.dart';
+import 'google_meet_integration_screen.dart';
 
 class SuperAdminDashboard extends ConsumerStatefulWidget {
   const SuperAdminDashboard({super.key});
@@ -93,9 +94,7 @@ class _SuperAdminDashboardState extends ConsumerState<SuperAdminDashboard>
             icon: const Icon(Icons.palette_outlined),
             onPressed: () {
               Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => const ThemeSettingsScreen(),
-                ),
+                MaterialPageRoute(builder: (_) => const ThemeSettingsScreen()),
               );
             },
             tooltip: 'Theme Settings',
@@ -148,6 +147,12 @@ class _SuperAdminDashboardState extends ConsumerState<SuperAdminDashboard>
                     builder: (_) => const ZoomIntegrationScreen(),
                   ),
                 );
+              } else if (value == 'google_meet') {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const GoogleMeetIntegrationScreen(),
+                  ),
+                );
               } else if (value == 'logout') {
                 _handleLogout();
               }
@@ -158,6 +163,14 @@ class _SuperAdminDashboardState extends ConsumerState<SuperAdminDashboard>
                 child: ListTile(
                   leading: Icon(Icons.video_call),
                   title: Text('Zoom Integration'),
+                  dense: true,
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'google_meet',
+                child: ListTile(
+                  leading: Icon(Icons.video_call_outlined),
+                  title: Text('Google Meet Integration'),
                   dense: true,
                 ),
               ),
@@ -1053,14 +1066,17 @@ class _SuperAdminDashboardState extends ConsumerState<SuperAdminDashboard>
                         if (!formKey.currentState!.validate()) {
                           return;
                         }
-                        
+
                         // Validate expiry date is not in the past
                         final expiryDate = expiry;
-                        if (expiryDate != null && expiryDate.isBefore(DateTime.now())) {
+                        if (expiryDate != null &&
+                            expiryDate.isBefore(DateTime.now())) {
                           if (context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
-                                content: Text('Expiry date cannot be in the past'),
+                                content: Text(
+                                  'Expiry date cannot be in the past',
+                                ),
                                 backgroundColor: Colors.red,
                               ),
                             );
@@ -1068,30 +1084,30 @@ class _SuperAdminDashboardState extends ConsumerState<SuperAdminDashboard>
                           return;
                         }
 
-                      try {
-                        final repo = ref.read(schoolRepositoryProvider);
-                        await repo.updateSchoolSubscription(
-                          schoolId: school.id,
-                          plan: selectedPlan,
-                          expiresAt: expiry,
-                        );
-                        if (context.mounted) Navigator.of(context).pop();
-                        ref.invalidate(allSchoolsProvider(_filters));
-                        ref.invalidate(globalAnalyticsProvider);
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Subscription updated'),
-                              backgroundColor: Colors.green,
-                            ),
+                        try {
+                          final repo = ref.read(schoolRepositoryProvider);
+                          await repo.updateSchoolSubscription(
+                            schoolId: school.id,
+                            plan: selectedPlan,
+                            expiresAt: expiry,
                           );
+                          if (context.mounted) Navigator.of(context).pop();
+                          ref.invalidate(allSchoolsProvider(_filters));
+                          ref.invalidate(globalAnalyticsProvider);
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Subscription updated'),
+                                backgroundColor: Colors.green,
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          _showError('Failed to update subscription: $e');
                         }
-                      } catch (e) {
-                        _showError('Failed to update subscription: $e');
-                      }
-                    },
-                    child: const Text('Save'),
-                  ),
+                      },
+                      child: const Text('Save'),
+                    ),
                   ],
                 ),
               ),

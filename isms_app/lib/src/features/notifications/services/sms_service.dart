@@ -4,7 +4,6 @@ import '../../../core/network/supabase_client.dart';
 
 /// SMS service for sending SMS messages
 /// Can be integrated with:
-/// - Twilio
 /// - AWS SNS
 /// - MessageBird
 /// - Vonage (Nexmo)

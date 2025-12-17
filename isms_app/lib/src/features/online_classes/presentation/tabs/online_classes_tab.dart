@@ -233,10 +233,6 @@ class _PlatformIcon extends StatelessWidget {
         icon = Icons.video_call;
         color = Colors.green;
         break;
-      case OnlineClassPlatform.microsoftTeams:
-        icon = Icons.groups;
-        color = Colors.purple;
-        break;
       case OnlineClassPlatform.custom:
         icon = Icons.video_label;
         color = Colors.orange;

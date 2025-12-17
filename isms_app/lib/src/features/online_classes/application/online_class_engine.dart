@@ -6,6 +6,7 @@ import 'package:isms_app/src/features/online_classes/domain/online_class_config.
 import 'package:isms_app/src/features/online_classes/domain/online_class_platform.dart';
 import 'package:isms_app/src/features/online_classes/domain/online_class_session.dart';
 import 'package:isms_app/src/features/online_classes/services/zoom_service.dart';
+import 'package:isms_app/src/features/online_classes/services/google_meet_service.dart';
 
 /// Online class engine for handling institution-specific online class logic
 class OnlineClassEngine {
@@ -14,9 +15,13 @@ class OnlineClassEngine {
   OnlineClassEngine(this._configLoader);
 
   /// Get online class configuration for a specific institution type
-  Future<OnlineClassConfig> getOnlineClassConfig(String institutionTypeId) async {
-    final academicConfig = await _configLoader.loadAcademicConfig(institutionTypeId);
-    
+  Future<OnlineClassConfig> getOnlineClassConfig(
+    String institutionTypeId,
+  ) async {
+    final academicConfig = await _configLoader.loadAcademicConfig(
+      institutionTypeId,
+    );
+
     // Default configuration that can be overridden by institution type
     var config = OnlineClassConfig(
       maxParticipants: 100,
@@ -33,7 +38,6 @@ class OnlineClassEngine {
       supportedPlatforms: {
         OnlineClassPlatform.zoom,
         OnlineClassPlatform.googleMeet,
-        OnlineClassPlatform.microsoftTeams,
       },
       minDuration: Duration(minutes: 15),
       maxDuration: Duration(hours: 4),
@@ -102,20 +106,28 @@ class OnlineClassEngine {
 
     // Validate duration
     if (onlineClass.duration.inMinutes < config.minDuration.inMinutes) {
-      errors.add('Duration must be at least ${config.minDuration.inMinutes} minutes');
+      errors.add(
+        'Duration must be at least ${config.minDuration.inMinutes} minutes',
+      );
     }
     if (onlineClass.duration.inMinutes > config.maxDuration.inMinutes) {
-      errors.add('Duration cannot exceed ${config.maxDuration.inMinutes} minutes');
+      errors.add(
+        'Duration cannot exceed ${config.maxDuration.inMinutes} minutes',
+      );
     }
 
     // Validate platform support
     if (!config.supportedPlatforms.contains(onlineClass.platform)) {
-      errors.add('Selected platform is not supported for this institution type');
+      errors.add(
+        'Selected platform is not supported for this institution type',
+      );
     }
 
     // Validate participant limit
     if (onlineClass.expectedParticipants > config.maxParticipants) {
-      errors.add('Maximum participants exceeded. Limit: ${config.maxParticipants}');
+      errors.add(
+        'Maximum participants exceeded. Limit: ${config.maxParticipants}',
+      );
     }
 
     // Validate recording settings
@@ -135,14 +147,12 @@ class OnlineClassEngine {
   /// For Zoom, this will create an actual meeting via API
   Future<String> generateMeetingUrl(OnlineClass onlineClass) async {
     final config = await getOnlineClassConfig(onlineClass.institutionTypeId);
-    
+
     switch (onlineClass.platform) {
       case OnlineClassPlatform.zoom:
         return await _generateZoomMeetingUrl(onlineClass, config);
       case OnlineClassPlatform.googleMeet:
-        return _generateGoogleMeetUrl(onlineClass, config);
-      case OnlineClassPlatform.microsoftTeams:
-        return _generateTeamsMeetingUrl(onlineClass, config);
+        return await _generateGoogleMeetUrl(onlineClass, config);
       case OnlineClassPlatform.custom:
         return onlineClass.customMeetingUrl ?? '';
     }
@@ -151,7 +161,7 @@ class OnlineClassEngine {
   /// Generate meeting credentials/password
   Future<String> generateMeetingCredentials(OnlineClass onlineClass) async {
     final config = await getOnlineClassConfig(onlineClass.institutionTypeId);
-    
+
     // Simple password generation - in production, use more secure methods
     final random = DateTime.now().millisecondsSinceEpoch.toString();
     return '${onlineClass.id.substring(0, 4)}${random.substring(random.length - 4)}';
@@ -160,33 +170,42 @@ class OnlineClassEngine {
   /// Check if a session can be started (considering buffer times)
   Future<bool> canStartSession(OnlineClassSession session) async {
     final now = DateTime.now();
-    final config = await getOnlineClassConfig(session.onlineClass.institutionTypeId);
-    
-    final bufferStart = session.scheduledStart.subtract(config.bufferTimeBefore);
+    final config = await getOnlineClassConfig(
+      session.onlineClass.institutionTypeId,
+    );
+
+    final bufferStart = session.scheduledStart.subtract(
+      config.bufferTimeBefore,
+    );
     final bufferEnd = session.scheduledEnd.add(config.bufferTimeAfter);
-    
+
     return now.isAfter(bufferStart) && now.isBefore(bufferEnd);
   }
 
   /// Get recommended platform for institution type
-  Future<OnlineClassPlatform> getRecommendedPlatform(String institutionTypeId) async {
+  Future<OnlineClassPlatform> getRecommendedPlatform(
+    String institutionTypeId,
+  ) async {
     final config = await getOnlineClassConfig(institutionTypeId);
     return config.defaultPlatform;
   }
 
   // Private methods for platform-specific URL generation
-  Future<String> _generateZoomMeetingUrl(OnlineClass onlineClass, OnlineClassConfig config) async {
+  Future<String> _generateZoomMeetingUrl(
+    OnlineClass onlineClass,
+    OnlineClassConfig config,
+  ) async {
     try {
       final zoomService = ZoomService();
-      
+
       // Create Zoom meeting with settings from config
       final meeting = await zoomService.createMeeting(
         title: onlineClass.title,
         startTime: onlineClass.scheduledStart,
         duration: onlineClass.duration.inMinutes,
         description: onlineClass.description,
-        password: onlineClass.meetingPassword.isNotEmpty 
-            ? onlineClass.meetingPassword 
+        password: onlineClass.meetingPassword.isNotEmpty
+            ? onlineClass.meetingPassword
             : ZoomService.generatePassword(),
         settings: ZoomMeetingSettings(
           waitingRoom: onlineClass.waitingRoomEnabled,
@@ -202,7 +221,7 @@ class OnlineClassEngine {
           allowMultipleDevices: true,
         ),
       );
-      
+
       return meeting.joinUrl;
     } catch (e) {
       // Fallback to placeholder URL if API call fails
@@ -211,14 +230,27 @@ class OnlineClassEngine {
     }
   }
 
-  String _generateGoogleMeetUrl(OnlineClass onlineClass, OnlineClassConfig config) {
-    // In production, integrate with Google Meet API
-    return 'https://meet.google.com/${onlineClass.id.substring(0, 12)}';
-  }
+  Future<String> _generateGoogleMeetUrl(
+    OnlineClass onlineClass,
+    OnlineClassConfig config,
+  ) async {
+    try {
+      final googleMeetService = GoogleMeetService();
 
-  String _generateTeamsMeetingUrl(OnlineClass onlineClass, OnlineClassConfig config) {
-    // In production, integrate with Teams API
-    return 'https://teams.microsoft.com/l/meetup-join/${onlineClass.id}';
+      // Create Google Meet with settings from config
+      final meeting = await googleMeetService.createMeeting(
+        title: onlineClass.title,
+        startTime: onlineClass.scheduledStart,
+        duration: onlineClass.duration.inMinutes,
+        description: onlineClass.description,
+      );
+
+      return meeting.joinUrl;
+    } catch (e) {
+      // Fallback to placeholder URL if API call fails
+      print('Error creating Google Meet: $e');
+      return 'https://meet.google.com/${onlineClass.id.substring(0, 12)}';
+    }
   }
 }
 
