@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/network/supabase_client.dart';
 import '../data/system_settings_repository.dart';
+import 'zoom_integration_screen.dart' show systemSettingsRepositoryProvider;
 
 /// Provider for Google Meet credentials
 final googleMeetCredentialsProvider = FutureProvider<GoogleMeetCredentials>((

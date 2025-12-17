@@ -47,24 +47,21 @@ class SystemSettingsRepository {
     try {
       final userId = await _getCurrentUserId();
 
-      // Check if setting exists first
-      final existing = await _client
+      // Try update first, then insert if no rows affected
+      final updateResponse = await _client
           .from('system_settings')
-          .select('id')
+          .update({
+            'setting_value': value,
+            'description': description,
+            'is_encrypted': isEncrypted,
+            'updated_by': userId,
+            'updated_at': DateTime.now().toIso8601String(),
+          })
           .eq('setting_key', key)
-          .maybeSingle();
+          .select();
 
-      if (existing != null) {
-        // Update existing setting
-        await _client.from('system_settings').update({
-          'setting_value': value,
-          'description': description,
-          'is_encrypted': isEncrypted,
-          'updated_by': userId,
-          'updated_at': DateTime.now().toIso8601String(),
-        }).eq('setting_key', key);
-      } else {
-        // Insert new setting
+      // If update didn't affect any rows, insert
+      if (updateResponse.isEmpty) {
         await _client.from('system_settings').insert({
           'setting_key': key,
           'setting_value': value,

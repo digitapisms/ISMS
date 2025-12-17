@@ -360,8 +360,8 @@ class _PaymentIntegrationDialogState
                                 _selectedOnlineProvider =
                                     PaymentProviderType.stripe;
                               } else if (value == 'online_paypal') {
-                                _selectedOnlineProvider =
-                                    PaymentProviderType.paypal;
+                                _selectedOnlineProvider = PaymentProviderType
+                                    .stripe; // PayPal not implemented, fallback to stripe
                               } else {
                                 _selectedOnlineProvider = null;
                               }
