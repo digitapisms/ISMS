@@ -635,6 +635,107 @@ class StudentRepository {
     return List<Map<String, dynamic>>.from(response as List);
   }
 
+  /// Bulk update application statuses - one-time solution for processing multiple reviews
+  Future<Map<String, dynamic>> bulkUpdateApplicationStatuses({
+    required List<String> applicationIds,
+    required String status,
+    String? remarks,
+  }) async {
+    final schoolId = _requireSchoolId();
+    int successCount = 0;
+    int failCount = 0;
+    final errors = <String, String>{};
+
+    for (final applicationId in applicationIds) {
+      try {
+        // Update each application with verification
+        final updateResponse = await _client
+            .from('applications')
+            .update({
+              'status': status,
+              'reviewed_at': DateTime.now().toIso8601String(),
+              'remarks': remarks,
+              'updated_at': DateTime.now().toIso8601String(),
+            })
+            .eq('id', applicationId)
+            .eq('school_id', schoolId)
+            .select()
+            .single();
+
+        // Verify the update was successful
+        if (updateResponse != null && 
+            (updateResponse as Map<String, dynamic>)['status'] == status) {
+          successCount++;
+
+          // If approved, update student status
+          if (status == 'approved') {
+            try {
+              final app = await _client
+                  .from('applications')
+                  .select('applicant_user_id')
+                  .eq('id', applicationId)
+                  .eq('school_id', schoolId)
+                  .single();
+
+              final userId = app['applicant_user_id'] as String;
+
+              // Find and update student record
+              final student = await _client
+                  .from('students')
+                  .select('id')
+                  .eq('user_id', userId)
+                  .eq('school_id', schoolId)
+                  .maybeSingle();
+
+              if (student != null) {
+                final studentUpdateResponse = await _client
+                    .from('students')
+                    .update({'status': 'active'})
+                    .eq('id', student['id'])
+                    .select()
+                    .single();
+                
+                if (studentUpdateResponse == null || 
+                    (studentUpdateResponse as Map<String, dynamic>)['status'] != 'active') {
+                  throw Exception('Failed to update student status to active.');
+                }
+              }
+
+              // Update user role to student
+              final userUpdateResponse = await _client
+                  .from('users')
+                  .update({'role': 'student'})
+                  .eq('id', userId)
+                  .select()
+                  .single();
+              
+              if (userUpdateResponse == null || 
+                  (userUpdateResponse as Map<String, dynamic>)['role'] != 'student') {
+                throw Exception('Failed to update user role to student.');
+              }
+            } catch (e) {
+              // Log but don't fail the entire operation
+              errors[applicationId] = 'Approved but failed to activate student: $e';
+            }
+          }
+        } else {
+          failCount++;
+          errors[applicationId] = 'Update did not commit successfully';
+        }
+      } catch (e) {
+        failCount++;
+        errors[applicationId] = e.toString();
+      }
+    }
+
+    return {
+      'success_count': successCount,
+      'fail_count': failCount,
+      'total': applicationIds.length,
+      'errors': errors,
+    };
+  }
+
   Future<void> updateApplicationStatus({
     required String applicationId,
     required String status,
@@ -652,15 +753,24 @@ class StudentRepository {
         .eq('school_id', schoolId)
         .maybeSingle();
 
-    await _client
+    // Update application status with proper error handling and confirmation
+    final updateResponse = await _client
         .from('applications')
         .update({
           'status': status,
           'reviewed_at': DateTime.now().toIso8601String(),
           'remarks': remarks,
+          'updated_at': DateTime.now().toIso8601String(),
         })
         .eq('id', applicationId)
-        .eq('school_id', schoolId);
+        .eq('school_id', schoolId)
+        .select()
+        .single();
+
+    // Verify the update was successful
+    if (updateResponse == null || (updateResponse as Map<String, dynamic>)['status'] != status) {
+      throw Exception('Failed to update application status. Update may not have been committed.');
+    }
 
     // If approved, update student status to active
     if (status == 'approved') {
@@ -682,14 +792,33 @@ class StudentRepository {
           .maybeSingle();
 
       if (student != null) {
-        await _client
+        final studentUpdateResponse = await _client
             .from('students')
             .update({'status': 'active'})
-            .eq('id', student['id']);
+            .eq('id', student['id'])
+            .select()
+            .single();
+        
+        // Verify student status update
+        if (studentUpdateResponse == null || 
+            (studentUpdateResponse as Map<String, dynamic>)['status'] != 'active') {
+          throw Exception('Failed to update student status to active.');
+        }
       }
 
       // Update user role to student
-      await _client.from('users').update({'role': 'student'}).eq('id', userId);
+      final userUpdateResponse = await _client
+          .from('users')
+          .update({'role': 'student'})
+          .eq('id', userId)
+          .select()
+          .single();
+      
+      // Verify user role update
+      if (userUpdateResponse == null || 
+          (userUpdateResponse as Map<String, dynamic>)['role'] != 'student') {
+        throw Exception('Failed to update user role to student.');
+      }
     }
 
     // Send email notification (if notification service is available)

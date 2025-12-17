@@ -6,9 +6,9 @@ class SupabaseConfig {
   // Hardcoded values for web deployment
   // These are embedded directly in the compiled code for reliability
   static const String _webSupabaseUrl =
-      'https://kgyzawrrcksjbwfwadfi.supabase.co';
+      'https://aduazpxwhvosrhgusrhn.supabase.co';
   static const String _webSupabaseAnonKey =
-      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtneXphd3JyY2tzamJ3ZndhZGZpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMzMDIzODcsImV4cCI6MjA3ODg3ODM4N30.vJ3yuO8BtxMkPePKR1ar2LqmaHKqKj9CpoacGN888gg';
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFkdWF6cHh3aHZvc3JoZ3VzcmhuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU5NjkzMTIsImV4cCI6MjA4MTU0NTMxMn0.KLzHMrFZDE9MilTYa9nB9hkV2Fo1XNPKvLJmQQMZPW0';
 
   static String get url {
     if (kIsWeb) {

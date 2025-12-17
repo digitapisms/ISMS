@@ -7,7 +7,7 @@ This guide shows you exactly how to add the Zoom API credentials to your Supabas
 ### Step-by-Step Instructions:
 
 1. **Open Supabase Dashboard**
-   - Go to: https://supabase.com/dashboard/project/kgyzawrrcksjbwfwadfi
+   - Go to: https://supabase.com/dashboard/project/aduazpxwhvosrhgusrhn
    - Or navigate to: https://supabase.com/dashboard → Select your project
 
 2. **Navigate to Edge Functions**
@@ -52,7 +52,7 @@ If you prefer using the command line:
 ### Prerequisites:
 - Supabase CLI installed
 - Logged in: `supabase login`
-- Project linked: `supabase link --project-ref kgyzawrrcksjbwfwadfi`
+- Project linked: `supabase link --project-ref aduazpxwhvosrhgusrhn`
 
 ### Commands:
 
@@ -60,11 +60,11 @@ If you prefer using the command line:
 cd isms_app
 
 # Set each environment variable
-supabase secrets set ZOOM_ACCOUNT_ID=C-e6_RSXR6er0hBagYLEzg --project-ref kgyzawrrcksjbwfwadfi
+supabase secrets set ZOOM_ACCOUNT_ID=C-e6_RSXR6er0hBagYLEzg --project-ref aduazpxwhvosrhgusrhn
 
-supabase secrets set ZOOM_CLIENT_ID=WyTkFC63QzWttaLqsiYdPA --project-ref kgyzawrrcksjbwfwadfi
+supabase secrets set ZOOM_CLIENT_ID=WyTkFC63QzWttaLqsiYdPA --project-ref aduazpxwhvosrhgusrhn
 
-supabase secrets set ZOOM_CLIENT_SECRET=siKHSGfgZGIEkVE2FUoBVOoJ0nIiMN47 --project-ref kgyzawrrcksjbwfwadfi
+supabase secrets set ZOOM_CLIENT_SECRET=siKHSGfgZGIEkVE2FUoBVOoJ0nIiMN47 --project-ref aduazpxwhvosrhgusrhn
 ```
 
 **Note:** The CLI method may vary depending on your Supabase CLI version. If these commands don't work, use Method 1 (Dashboard).
@@ -115,5 +115,5 @@ After adding the variables, you can verify they're set correctly:
 - Client Secret: `siKHSGfgZGIEkVE2FUoBVOoJ0nIiMN47`
 
 **Direct Dashboard Link:**
-https://supabase.com/dashboard/project/kgyzawrrcksjbwfwadfi/functions/create-zoom-meeting/settings
+https://supabase.com/dashboard/project/aduazpxwhvosrhgusrhn/functions/create-zoom-meeting/settings
 

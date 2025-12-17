@@ -11,7 +11,43 @@ class AdminApplicationReviewScreen extends ConsumerWidget {
     final applicationsAsync = ref.watch(pendingApplicationsProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Pending Applications')),
+      appBar: AppBar(
+        title: const Text('Pending Applications'),
+        actions: [
+          // Bulk review action
+          applicationsAsync.when(
+            data: (apps) {
+              if (apps.isEmpty) return const SizedBox.shrink();
+              return PopupMenuButton<String>(
+                icon: const Icon(Icons.more_vert),
+                onSelected: (action) {
+                  _handleBulkAction(context, ref, apps, action);
+                },
+                itemBuilder: (context) => [
+                  const PopupMenuItem(
+                    value: 'approve_all',
+                    child: ListTile(
+                      leading: Icon(Icons.check_circle, color: Colors.green),
+                      title: Text('Approve All'),
+                      dense: true,
+                    ),
+                  ),
+                  const PopupMenuItem(
+                    value: 'reject_all',
+                    child: ListTile(
+                      leading: Icon(Icons.cancel, color: Colors.red),
+                      title: Text('Reject All'),
+                      dense: true,
+                    ),
+                  ),
+                ],
+              );
+            },
+            loading: () => const SizedBox.shrink(),
+            error: (_, __) => const SizedBox.shrink(),
+          ),
+        ],
+      ),
       body: applicationsAsync.when(
         data: (applications) {
           if (applications.isEmpty) {
@@ -122,6 +158,134 @@ class AdminApplicationReviewScreen extends ConsumerWidget {
       return '${d.day}/${d.month}/${d.year}';
     } catch (e) {
       return date.toString();
+    }
+  }
+
+  Future<void> _handleBulkAction(
+    BuildContext context,
+    WidgetRef ref,
+    List<Map<String, dynamic>> applications,
+    String action,
+  ) async {
+    final status = action == 'approve_all' ? 'approved' : 'rejected';
+    final actionName = action == 'approve_all' ? 'approve' : 'reject';
+
+    // Show confirmation dialog
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text('$actionName All Applications'),
+        content: Text(
+          'Are you sure you want to $actionName all ${applications.length} pending applications? This action cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            style: action == 'approve_all'
+                ? null
+                : FilledButton.styleFrom(backgroundColor: Colors.red),
+            child: Text(actionName.toUpperCase()),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    // Show progress dialog
+    final progressDialog = showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (progressContext) => AlertDialog(
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const CircularProgressIndicator(),
+            const SizedBox(height: 16),
+            Text('Processing ${applications.length} applications...'),
+          ],
+        ),
+      ),
+    );
+
+    try {
+      final repo = ref.read(studentRepositoryProvider);
+      final applicationIds = applications
+          .map((app) => app['id'] as String)
+          .toList();
+
+      final result = await repo.bulkUpdateApplicationStatuses(
+        applicationIds: applicationIds,
+        status: status,
+        remarks: 'Bulk $actionName action',
+      );
+
+      // Close progress dialog
+      Navigator.of(context, rootNavigator: true).pop();
+
+      if (!context.mounted) return;
+
+      // Refresh data
+      ref.invalidate(pendingApplicationsProvider);
+
+      // Show results
+      showDialog(
+        context: context,
+        builder: (resultContext) => AlertDialog(
+          title: Text('Bulk $actionName Complete'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Total: ${result['total']}'),
+              Text(
+                '✓ Successful: ${result['success_count']}',
+                style: const TextStyle(color: Colors.green),
+              ),
+              if (result['fail_count'] > 0)
+                Text(
+                  '✗ Failed: ${result['fail_count']}',
+                  style: const TextStyle(color: Colors.red),
+                ),
+              if (result['errors'] != null &&
+                  (result['errors'] as Map).isNotEmpty) ...[
+                const SizedBox(height: 8),
+                const Text('Errors:', style: TextStyle(fontWeight: FontWeight.bold)),
+                ...(result['errors'] as Map<String, String>).entries.map(
+                  (e) => Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      '${e.key.substring(0, 8)}...: ${e.value}',
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+          actions: [
+            FilledButton(
+              onPressed: () => Navigator.pop(resultContext),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      // Close progress dialog
+      Navigator.of(context, rootNavigator: true).pop();
+      
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Bulk action failed: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 }

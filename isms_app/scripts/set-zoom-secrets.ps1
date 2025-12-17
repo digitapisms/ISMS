@@ -3,7 +3,7 @@
 
 Write-Host "🔐 Setting Zoom API credentials in Supabase..." -ForegroundColor Cyan
 
-$projectRef = "kgyzawrrcksjbwfwadfi"
+$projectRef = "aduazpxwhvosrhgusrhn"
 
 # Set each secret individually
 Write-Host "Setting ZOOM_ACCOUNT_ID..." -ForegroundColor Yellow
