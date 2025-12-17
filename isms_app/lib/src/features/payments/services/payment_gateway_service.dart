@@ -377,6 +377,12 @@ class PaymentGatewayConfig {
   /// `false` otherwise. This should be checked before attempting any
   /// payment operations.
   bool get isValid {
+    // Bank transfer and cash don't require API configuration
+    if (provider == PaymentProviderType.bank_transfer ||
+        provider == PaymentProviderType.cash) {
+      return true;
+    }
+
     if (apiKey.isEmpty || apiSecret.isEmpty || baseUrl.isEmpty) {
       return false;
     }
@@ -387,7 +393,6 @@ class PaymentGatewayConfig {
       case PaymentProviderType.easypaisa:
         return merchantId.isNotEmpty && terminalId.isNotEmpty;
       case PaymentProviderType.stripe:
-      case PaymentProviderType.paypal:
         return webhookSecret.isNotEmpty;
       default:
         return true;

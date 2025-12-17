@@ -3,43 +3,36 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/network/supabase_client.dart';
 import '../data/system_settings_repository.dart';
 
-/// Provider for system settings repository
-final systemSettingsRepositoryProvider = Provider<SystemSettingsRepository>(
-  (ref) => SystemSettingsRepository(),
-);
-
-/// Provider for Zoom credentials
-final zoomCredentialsProvider = FutureProvider<ZoomCredentials>((ref) async {
+/// Provider for Google Meet credentials
+final googleMeetCredentialsProvider = FutureProvider<GoogleMeetCredentials>((
+  ref,
+) async {
   final repo = ref.read(systemSettingsRepositoryProvider);
-  return repo.getZoomCredentials();
+  return repo.getGoogleMeetCredentials();
 });
 
-class ZoomIntegrationScreen extends ConsumerStatefulWidget {
-  const ZoomIntegrationScreen({super.key});
+class GoogleMeetIntegrationScreen extends ConsumerStatefulWidget {
+  const GoogleMeetIntegrationScreen({super.key});
 
   @override
-  ConsumerState<ZoomIntegrationScreen> createState() =>
-      _ZoomIntegrationScreenState();
+  ConsumerState<GoogleMeetIntegrationScreen> createState() =>
+      _GoogleMeetIntegrationScreenState();
 }
 
-class _ZoomIntegrationScreenState extends ConsumerState<ZoomIntegrationScreen> {
+class _GoogleMeetIntegrationScreenState
+    extends ConsumerState<GoogleMeetIntegrationScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _accountIdController = TextEditingController();
-  final _clientIdController = TextEditingController();
-  final _clientSecretController = TextEditingController();
+  final _clientEmailController = TextEditingController();
+  final _privateKeyController = TextEditingController();
+  final _projectIdController = TextEditingController();
   bool _isLoading = false;
-  bool _obscureSecret = true;
-
-  @override
-  void initState() {
-    super.initState();
-  }
+  bool _obscureKey = true;
 
   @override
   void dispose() {
-    _accountIdController.dispose();
-    _clientIdController.dispose();
-    _clientSecretController.dispose();
+    _clientEmailController.dispose();
+    _privateKeyController.dispose();
+    _projectIdController.dispose();
     super.dispose();
   }
 
@@ -55,39 +48,21 @@ class _ZoomIntegrationScreenState extends ConsumerState<ZoomIntegrationScreen> {
     try {
       final repo = ref.read(systemSettingsRepositoryProvider);
 
-      // Trim all credentials to remove any whitespace
-      final accountId = _accountIdController.text.trim();
-      final clientId = _clientIdController.text.trim();
-      final clientSecret = _clientSecretController.text.trim();
-
-      // Validate Account ID format
-      if (!accountId.startsWith('C-')) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Account ID must start with "C-"'),
-              backgroundColor: Colors.orange,
-            ),
-          );
-        }
-        return;
-      }
-
-      final credentials = ZoomCredentials(
-        accountId: accountId,
-        clientId: clientId,
-        clientSecret: clientSecret,
+      final credentials = GoogleMeetCredentials(
+        clientEmail: _clientEmailController.text.trim(),
+        privateKey: _privateKeyController.text.trim(),
+        projectId: _projectIdController.text.trim(),
       );
 
-      await repo.updateZoomCredentials(credentials);
+      await repo.updateGoogleMeetCredentials(credentials);
 
       // Refresh the provider
-      ref.invalidate(zoomCredentialsProvider);
+      ref.invalidate(googleMeetCredentialsProvider);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Zoom credentials saved successfully!'),
+            content: Text('Google Meet credentials saved successfully!'),
             backgroundColor: Colors.green,
           ),
         );
@@ -120,34 +95,29 @@ class _ZoomIntegrationScreenState extends ConsumerState<ZoomIntegrationScreen> {
     });
 
     try {
-      final accountId = _accountIdController.text.trim();
-      final clientId = _clientIdController.text.trim();
-      final clientSecret = _clientSecretController.text.trim();
+      final clientEmail = _clientEmailController.text.trim();
+      final privateKey = _privateKeyController.text.trim();
+      final projectId = _projectIdController.text.trim();
 
-      if (accountId.isEmpty || clientId.isEmpty || clientSecret.isEmpty) {
+      if (clientEmail.isEmpty || privateKey.isEmpty || projectId.isEmpty) {
         throw Exception('Please fill in all credentials before testing');
-      }
-
-      // Validate Account ID format
-      if (!accountId.startsWith('C-')) {
-        throw Exception('Account ID must start with "C-"');
       }
 
       // First, save the credentials so the Edge Function can read them
       final repo = ref.read(systemSettingsRepositoryProvider);
-      final credentials = ZoomCredentials(
-        accountId: accountId,
-        clientId: clientId,
-        clientSecret: clientSecret,
+      final credentials = GoogleMeetCredentials(
+        clientEmail: clientEmail,
+        privateKey: privateKey,
+        projectId: projectId,
       );
-      await repo.updateZoomCredentials(credentials);
+      await repo.updateGoogleMeetCredentials(credentials);
 
       // Wait a moment for the database to update
       await Future.delayed(const Duration(milliseconds: 500));
 
       // Test by trying to create a test meeting
       final response = await SupabaseManager.client.functions.invoke(
-        'create-zoom-meeting',
+        'create-google-meet',
         body: {
           'title': 'ISMS Connection Test',
           'startTime': DateTime.now()
@@ -163,7 +133,7 @@ class _ZoomIntegrationScreenState extends ConsumerState<ZoomIntegrationScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text(
-                '✅ Connection test successful! Zoom credentials are valid.',
+                '✅ Connection test successful! Google Meet credentials are valid.',
               ),
               backgroundColor: Colors.green,
               duration: Duration(seconds: 4),
@@ -175,17 +145,6 @@ class _ZoomIntegrationScreenState extends ConsumerState<ZoomIntegrationScreen> {
         String errorMessage = 'Test failed';
         if (errorData is Map) {
           errorMessage = errorData['error']?.toString() ?? errorMessage;
-          if (errorData['details'] != null) {
-            final details = errorData['details'];
-            if (details is Map && details['error'] == 'invalid_client') {
-              errorMessage =
-                  'Invalid Zoom credentials. Please verify:\n'
-                  '• Client ID and Client Secret are correct\n'
-                  '• No extra spaces in credentials\n'
-                  '• OAuth app is activated in Zoom Marketplace\n'
-                  '• Account ID is correct';
-            }
-          }
         }
         throw Exception(errorMessage);
       }
@@ -216,11 +175,11 @@ class _ZoomIntegrationScreenState extends ConsumerState<ZoomIntegrationScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final credentialsAsync = ref.watch(zoomCredentialsProvider);
+    final credentialsAsync = ref.watch(googleMeetCredentialsProvider);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Zoom Integration Settings'),
+        title: const Text('Google Meet Integration Settings'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.of(context).pop(),
@@ -229,10 +188,10 @@ class _ZoomIntegrationScreenState extends ConsumerState<ZoomIntegrationScreen> {
       body: credentialsAsync.when(
         data: (credentials) {
           // Update controllers if data loaded
-          if (_accountIdController.text != credentials.accountId) {
-            _accountIdController.text = credentials.accountId;
-            _clientIdController.text = credentials.clientId;
-            _clientSecretController.text = credentials.clientSecret;
+          if (_clientEmailController.text != credentials.clientEmail) {
+            _clientEmailController.text = credentials.clientEmail;
+            _privateKeyController.text = credentials.privateKey;
+            _projectIdController.text = credentials.projectId;
           }
 
           return SingleChildScrollView(
@@ -259,7 +218,7 @@ class _ZoomIntegrationScreenState extends ConsumerState<ZoomIntegrationScreen> {
                               const SizedBox(width: 12),
                               const Expanded(
                                 child: Text(
-                                  'Zoom API Integration',
+                                  'Google Meet API Integration',
                                   style: TextStyle(
                                     fontSize: 20,
                                     fontWeight: FontWeight.bold,
@@ -270,8 +229,8 @@ class _ZoomIntegrationScreenState extends ConsumerState<ZoomIntegrationScreen> {
                           ),
                           const SizedBox(height: 12),
                           Text(
-                            'Configure Zoom API credentials to enable online class meetings. '
-                            'These credentials are used to create Zoom meetings automatically when '
+                            'Configure Google Cloud Service Account credentials to enable Google Meet meetings. '
+                            'These credentials are used to create Google Meet conferences automatically when '
                             'online classes are scheduled.',
                             style: Theme.of(context).textTheme.bodyMedium,
                           ),
@@ -293,7 +252,7 @@ class _ZoomIntegrationScreenState extends ConsumerState<ZoomIntegrationScreen> {
                                 const SizedBox(width: 8),
                                 Expanded(
                                   child: Text(
-                                    'Get your credentials from Zoom Marketplace: marketplace.zoom.us',
+                                    'Get your credentials from Google Cloud Console: console.cloud.google.com',
                                     style: Theme.of(
                                       context,
                                     ).textTheme.bodySmall,
@@ -308,156 +267,92 @@ class _ZoomIntegrationScreenState extends ConsumerState<ZoomIntegrationScreen> {
                   ),
                   const SizedBox(height: 24),
 
-                  // Credential Verification Info
-                  Card(
-                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                    child: Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.info_outline,
-                            color: Theme.of(context).colorScheme.primary,
-                            size: 20,
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              'Tip: Copy credentials directly from Zoom Marketplace → Your App → App Credentials. Ensure no extra spaces.',
-                              style: Theme.of(context).textTheme.bodySmall,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Account ID Field
+                  // Client Email Field
                   TextFormField(
-                    controller: _accountIdController,
+                    controller: _clientEmailController,
                     decoration: InputDecoration(
-                      labelText: 'Zoom Account ID',
-                      hintText: 'C-xxxxxxxxxxxxx',
-                      prefixIcon: const Icon(Icons.account_circle),
+                      labelText: 'Service Account Email',
+                      hintText:
+                          'your-service-account@project-id.iam.gserviceaccount.com',
+                      prefixIcon: const Icon(Icons.email),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
                       helperText:
-                          'Your Zoom Account ID (starts with C-). Found in Zoom Marketplace → App Credentials',
-                      suffixIcon: _accountIdController.text.isNotEmpty
-                          ? IconButton(
-                              icon: const Icon(Icons.check_circle, size: 20),
-                              color:
-                                  _accountIdController.text.trim().startsWith(
-                                    'C-',
-                                  )
-                                  ? Colors.green
-                                  : Colors.orange,
-                              onPressed: () {},
-                              tooltip:
-                                  _accountIdController.text.trim().startsWith(
-                                    'C-',
-                                  )
-                                  ? 'Valid format'
-                                  : 'Must start with C-',
-                            )
-                          : null,
+                          'Service Account Email from Google Cloud Console',
                     ),
                     validator: (value) {
                       if (value == null || value.trim().isEmpty) {
-                        return 'Account ID is required';
+                        return 'Service Account Email is required';
                       }
-                      final trimmed = value.trim();
-                      if (!trimmed.startsWith('C-')) {
-                        return 'Account ID must start with C-';
-                      }
-                      if (trimmed.length < 5) {
-                        return 'Account ID seems too short';
+                      if (!value.contains('@') ||
+                          !value.contains('.iam.gserviceaccount.com')) {
+                        return 'Invalid Service Account Email format';
                       }
                       return null;
-                    },
-                    onChanged: (value) {
-                      setState(() {}); // Update suffix icon
                     },
                   ),
                   const SizedBox(height: 16),
 
-                  // Client ID Field
+                  // Private Key Field
                   TextFormField(
-                    controller: _clientIdController,
+                    controller: _privateKeyController,
+                    obscureText: _obscureKey,
+                    maxLines: 5,
                     decoration: InputDecoration(
-                      labelText: 'Zoom Client ID',
-                      hintText: 'Your OAuth Client ID',
+                      labelText: 'Private Key (JSON)',
+                      hintText: 'Paste the entire private key JSON here',
                       prefixIcon: const Icon(Icons.vpn_key),
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          _obscureKey ? Icons.visibility : Icons.visibility_off,
+                        ),
+                        onPressed: () {
+                          setState(() {
+                            _obscureKey = !_obscureKey;
+                          });
+                        },
+                      ),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      helperText: 'OAuth 2.0 Client ID from Zoom Marketplace',
+                      helperText:
+                          'Private Key JSON from Google Cloud Service Account',
                     ),
                     validator: (value) {
                       if (value == null || value.trim().isEmpty) {
-                        return 'Client ID is required';
+                        return 'Private Key is required';
+                      }
+                      try {
+                        // Basic JSON validation
+                        if (!value.trim().startsWith('{')) {
+                          return 'Private Key must be valid JSON';
+                        }
+                      } catch (e) {
+                        return 'Invalid JSON format';
                       }
                       return null;
                     },
                   ),
                   const SizedBox(height: 16),
 
-                  // Client Secret Field
+                  // Project ID Field
                   TextFormField(
-                    controller: _clientSecretController,
-                    obscureText: _obscureSecret,
+                    controller: _projectIdController,
                     decoration: InputDecoration(
-                      labelText: 'Zoom Client Secret',
-                      hintText: 'Your OAuth Client Secret',
-                      prefixIcon: const Icon(Icons.lock),
-                      suffixIcon: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (_clientSecretController.text.isNotEmpty)
-                            IconButton(
-                              icon: const Icon(Icons.check_circle, size: 20),
-                              color:
-                                  _clientSecretController.text.trim().length >=
-                                      10
-                                  ? Colors.green
-                                  : Colors.orange,
-                              onPressed: () {},
-                              tooltip:
-                                  'Length: ${_clientSecretController.text.trim().length}',
-                            ),
-                          IconButton(
-                            icon: Icon(
-                              _obscureSecret
-                                  ? Icons.visibility
-                                  : Icons.visibility_off,
-                            ),
-                            onPressed: () {
-                              setState(() {
-                                _obscureSecret = !_obscureSecret;
-                              });
-                            },
-                          ),
-                        ],
+                      labelText: 'Google Cloud Project ID',
+                      hintText: 'your-project-id',
+                      prefixIcon: const Icon(Icons.folder),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
                       ),
-                      border: const OutlineInputBorder(
-                        borderRadius: BorderRadius.all(Radius.circular(8)),
-                      ),
-                      helperText:
-                          'OAuth 2.0 Client Secret (keep this secure). Usually 32 characters',
+                      helperText: 'Google Cloud Project ID',
                     ),
                     validator: (value) {
                       if (value == null || value.trim().isEmpty) {
-                        return 'Client Secret is required';
-                      }
-                      if (value.trim().length < 10) {
-                        return 'Client Secret seems too short (usually 32 characters)';
+                        return 'Project ID is required';
                       }
                       return null;
-                    },
-                    onChanged: (value) {
-                      setState(() {}); // Update suffix icon
                     },
                   ),
                   const SizedBox(height: 24),
@@ -503,7 +398,9 @@ class _ZoomIntegrationScreenState extends ConsumerState<ZoomIntegrationScreen> {
 
                   // Instructions Card
                   Card(
-                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.surfaceContainerHighest,
                     child: Padding(
                       padding: const EdgeInsets.all(16),
                       child: Column(
@@ -517,7 +414,7 @@ class _ZoomIntegrationScreenState extends ConsumerState<ZoomIntegrationScreen> {
                               ),
                               const SizedBox(width: 8),
                               Text(
-                                'How to Get Zoom Credentials',
+                                'How to Get Google Meet Credentials',
                                 style: Theme.of(context).textTheme.titleMedium
                                     ?.copyWith(fontWeight: FontWeight.bold),
                               ),
@@ -527,38 +424,38 @@ class _ZoomIntegrationScreenState extends ConsumerState<ZoomIntegrationScreen> {
                           _buildInstructionStep(
                             context,
                             '1',
-                            'Go to Zoom Marketplace',
-                            'Visit marketplace.zoom.us and sign in with your Zoom account',
+                            'Go to Google Cloud Console',
+                            'Visit console.cloud.google.com and select or create a project',
                           ),
                           _buildInstructionStep(
                             context,
                             '2',
-                            'Navigate to Your App',
-                            'Click "Develop" → "Build App" → Select your "Server-to-Server OAuth" app (or "Manage" → "Created Apps")',
+                            'Enable Google Meet API',
+                            'Navigate to APIs & Services → Library → Search "Google Meet API" → Enable',
                           ),
                           _buildInstructionStep(
                             context,
                             '3',
-                            'Verify App is Activated',
-                            'Go to "Activation" tab → Ensure status is "Activated" (green). If not, click "Activate" and wait.',
+                            'Create Service Account',
+                            'Go to IAM & Admin → Service Accounts → Create Service Account',
                           ),
                           _buildInstructionStep(
                             context,
                             '4',
-                            'Get Credentials',
-                            'Go to "App Credentials" tab → Copy Account ID (starts with C-), Client ID, and Client Secret. Click "Show" if Client Secret is hidden.',
+                            'Generate Private Key',
+                            'Click on Service Account → Keys → Add Key → Create new key → JSON → Create',
                           ),
                           _buildInstructionStep(
                             context,
                             '5',
-                            'Verify Scopes',
-                            'Go to "Scopes" tab → Ensure these are added: meeting:write, meeting:read, user:read',
+                            'Copy Credentials',
+                            'Copy the client_email, private_key, and project_id from the downloaded JSON file',
                           ),
                           _buildInstructionStep(
                             context,
                             '6',
                             'Save in ISMS',
-                            'Paste credentials above (no extra spaces), click "Save Credentials", then "Test Connection"',
+                            'Paste credentials above, click "Save Credentials", then "Test Connection"',
                           ),
                         ],
                       ),
@@ -580,7 +477,7 @@ class _ZoomIntegrationScreenState extends ConsumerState<ZoomIntegrationScreen> {
               const SizedBox(height: 16),
               ElevatedButton(
                 onPressed: () {
-                  ref.invalidate(zoomCredentialsProvider);
+                  ref.invalidate(googleMeetCredentialsProvider);
                 },
                 child: const Text('Retry'),
               ),

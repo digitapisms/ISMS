@@ -10,7 +10,6 @@ import '../dialogs/fee_invoice_form_dialog.dart';
 import '../dialogs/bulk_invoice_generation_dialog.dart';
 import '../widgets/payment_button.dart';
 import '../widgets/fee_reminder_button.dart';
-import '../widgets/three_copy_invoice_viewer.dart';
 import '../../services/pdf_service.dart';
 import '../../../student_management/application/student_providers.dart';
 import '../../../student_management/domain/student.dart';

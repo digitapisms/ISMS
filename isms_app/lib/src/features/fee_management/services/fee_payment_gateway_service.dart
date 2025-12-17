@@ -1,8 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:isms_app/src/features/payments/services/payment_gateway_service.dart';
-import 'package:isms_app/src/features/fee_management/data/fee_repository.dart';
 import 'package:isms_app/src/features/fee_management/domain/fee_invoice.dart';
-import 'package:isms_app/src/features/fee_management/domain/fee_payment.dart';
 import 'package:isms_app/src/features/fee_management/application/fee_providers.dart';
 import 'package:isms_app/src/features/school_registration/application/school_providers.dart';
 
@@ -143,6 +141,13 @@ class FeePaymentGatewayService {
     final availableProviders = <PaymentProviderType>[];
 
     for (final provider in PaymentProviderType.values) {
+      // Bank transfer and cash are always available (no API keys needed)
+      if (provider == PaymentProviderType.bank_transfer ||
+          provider == PaymentProviderType.cash) {
+        availableProviders.add(provider);
+        continue;
+      }
+
       final config = PaymentGatewayConfig.fromEnv(provider);
       if (config.isValid) {
         availableProviders.add(provider);

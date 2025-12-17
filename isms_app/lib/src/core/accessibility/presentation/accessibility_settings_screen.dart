@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../accessibility_provider.dart';
-import '../accessibility_service.dart';
 
 class AccessibilitySettingsScreen extends ConsumerWidget {
   const AccessibilitySettingsScreen({super.key});
