@@ -202,13 +202,13 @@ class _ClassSelector extends ConsumerWidget {
           return const Text('No classes available');
         }
         return DropdownButtonFormField<int>(
-          initialValue: selectedClassId,
+          value: selectedClassId,
           decoration: const InputDecoration(
             labelText: 'Class',
             border: OutlineInputBorder(),
           ),
           items: classes.map((cls) {
-            return DropdownMenuItem(value: cls.id, child: Text(cls.name));
+            return DropdownMenuItem<int>(value: cls.id, child: Text(cls.name));
           }).toList(),
           onChanged: onClassSelected,
         );

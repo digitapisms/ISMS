@@ -21,7 +21,43 @@ class SubscriptionRepository {
         .toList();
   }
 
-  /// Get all available subscription plans
+  /// Update plan features mapping
+  Future<void> updatePlanFeatures({
+    required String planName,
+    required List<Map<String, dynamic>> features,
+  }) async {
+    // Normalize plan name to lowercase for consistent storage
+    final normalizedPlanName = planName.toLowerCase();
+
+    // Delete existing mappings for this plan (both cases for cleanup)
+    await _client
+        .from('plan_feature_mapping')
+        .delete()
+        .eq('plan_name', normalizedPlanName);
+    await _client
+        .from('plan_feature_mapping')
+        .delete()
+        .eq('plan_name', planName);
+
+    // Insert new mappings with lowercase plan name
+    final mappings = features
+        .where((f) => f['is_enabled'] == true)
+        .map(
+          (f) => {
+            'plan_name': normalizedPlanName,
+            'feature_id': f['feature_id'],
+            'is_enabled': true,
+            'limit_value': f['limit_value'],
+          },
+        )
+        .toList();
+
+    if (mappings.isNotEmpty) {
+      await _client.from('plan_feature_mapping').insert(mappings);
+    }
+  }
+
+  /// Get all available subscription plans with features loaded
   Future<List<SubscriptionPlan>> getAllPlans() async {
     final response = await _client
         .from('subscription_plans')
@@ -31,9 +67,36 @@ class SubscriptionRepository {
         .order('price_per_month');
 
     final data = response as List<dynamic>;
-    return data
-        .map((row) => SubscriptionPlan.fromMap(row as Map<String, dynamic>))
-        .toList();
+    final plans = <SubscriptionPlan>[];
+
+    for (final row in data) {
+      final planMap = row as Map<String, dynamic>;
+      final planName = (planMap['name'] as String).toLowerCase();
+
+      // Load features for this plan from plan_feature_mapping
+      final featuresResponse = await _client
+          .from('plan_feature_mapping')
+          .select(
+            'feature_id, is_enabled, limit_value, plan_features(feature_key)',
+          )
+          .eq('plan_name', planName);
+
+      final featuresMap = <String, dynamic>{};
+      for (final f in featuresResponse as List) {
+        final featureKey = f['plan_features']?['feature_key'] as String?;
+        if (featureKey != null && f['is_enabled'] == true) {
+          featuresMap[featureKey] = true;
+          if (f['limit_value'] != null) {
+            featuresMap['${featureKey}_limit'] = f['limit_value'];
+          }
+        }
+      }
+
+      planMap['features'] = featuresMap;
+      plans.add(SubscriptionPlan.fromMap(planMap));
+    }
+
+    return plans;
   }
 
   /// Get a specific plan by ID

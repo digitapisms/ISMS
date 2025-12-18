@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../authentication/application/auth_providers.dart';
+import '../../../core/network/supabase_providers.dart';
 import '../../school_registration/application/school_providers.dart';
 import '../../school_registration/domain/global_analytics.dart';
 import '../../school_registration/domain/school.dart';
@@ -11,7 +12,6 @@ import '../../school_registration/domain/school_analytics.dart';
 import '../../tenants/presentation/tenant_overview_tab.dart';
 import '../../subscription/application/subscription_providers.dart';
 import '../../../core/theme/presentation/theme_settings_screen.dart';
-import '../../../core/localization/widgets/language_selector.dart';
 import 'plan_editor_view.dart';
 import 'zoom_integration_screen.dart';
 import 'google_meet_integration_screen.dart';
@@ -47,7 +47,7 @@ class _SuperAdminDashboardState extends ConsumerState<SuperAdminDashboard>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 6, vsync: this);
     _searchController.addListener(() {
       setState(() {});
     });
@@ -190,7 +190,9 @@ class _SuperAdminDashboardState extends ConsumerState<SuperAdminDashboard>
             Tab(icon: Icon(Icons.school), text: 'Schools'),
             Tab(icon: Icon(Icons.analytics), text: 'Analytics'),
             Tab(icon: Icon(Icons.workspace_premium), text: 'Plans'),
+            Tab(icon: Icon(Icons.attach_money), text: 'Financials'),
             Tab(icon: Icon(Icons.admin_panel_settings), text: 'Tenants'),
+            Tab(icon: Icon(Icons.smart_toy), text: 'AI Settings'),
           ],
         ),
       ),
@@ -244,10 +246,318 @@ class _SuperAdminDashboardState extends ConsumerState<SuperAdminDashboard>
           ),
           _buildAnalyticsTab(globalAnalyticsAsync),
           _buildPlansTab(),
+          _buildFinancialsTab(),
           const TenantOverviewTab(),
+          _buildAISettingsTab(),
         ],
       ),
     );
+  }
+
+  Widget _buildAISettingsTab() {
+    return FutureBuilder<Map<String, String>>(
+      future: _loadAISettings(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        final settings = snapshot.data ?? {};
+        final apiKeyController = TextEditingController(
+          text: settings['OPENROUTER_API_KEY'] ?? '',
+        );
+        final modelController = TextEditingController(
+          text: settings['AI_MODEL'] ?? 'openai/gpt-4o-mini',
+        );
+        final aiEnabled = settings['AI_ENABLED'] == 'true';
+
+        return StatefulBuilder(
+          builder: (context, setLocalState) {
+            return SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Header
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.smart_toy,
+                        size: 48,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'AI Configuration',
+                              style: Theme.of(context).textTheme.headlineMedium,
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Configure OpenRouter API for AI-powered features like tutoring, homework help, and intelligent assistance.',
+                              style: Theme.of(context).textTheme.bodyMedium
+                                  ?.copyWith(color: Colors.grey[600]),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 32),
+
+                  // AI Enable Toggle
+                  Card(
+                    child: SwitchListTile(
+                      title: const Text('Enable AI Features'),
+                      subtitle: const Text(
+                        'Turn on/off AI capabilities for all schools',
+                      ),
+                      value: aiEnabled,
+                      onChanged: (value) async {
+                        await _saveAISetting(
+                          'AI_ENABLED',
+                          value ? 'true' : 'false',
+                        );
+                        setLocalState(() {});
+                      },
+                      secondary: Icon(
+                        aiEnabled ? Icons.check_circle : Icons.cancel,
+                        color: aiEnabled ? Colors.green : Colors.grey,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+
+                  // OpenRouter API Key
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(Icons.key, color: Colors.orange),
+                              const SizedBox(width: 12),
+                              Text(
+                                'OpenRouter API Key',
+                                style: Theme.of(context).textTheme.titleMedium,
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Get your API key from openrouter.ai. This key is used for all AI features.',
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(color: Colors.grey[600]),
+                          ),
+                          const SizedBox(height: 16),
+                          TextField(
+                            controller: apiKeyController,
+                            obscureText: true,
+                            decoration: const InputDecoration(
+                              labelText: 'API Key',
+                              hintText: 'sk-or-v1-...',
+                              border: OutlineInputBorder(),
+                              prefixIcon: Icon(Icons.vpn_key),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: FilledButton.icon(
+                              icon: const Icon(Icons.save),
+                              label: const Text('Save API Key'),
+                              onPressed: () async {
+                                await _saveAISetting(
+                                  'OPENROUTER_API_KEY',
+                                  apiKeyController.text,
+                                );
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                        'API Key saved successfully',
+                                      ),
+                                      backgroundColor: Colors.green,
+                                    ),
+                                  );
+                                }
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+
+                  // AI Model Selection
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.psychology,
+                                color: Colors.purple,
+                              ),
+                              const SizedBox(width: 12),
+                              Text(
+                                'AI Model',
+                                style: Theme.of(context).textTheme.titleMedium,
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Select the AI model to use for chat and assistance features.',
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(color: Colors.grey[600]),
+                          ),
+                          const SizedBox(height: 16),
+                          DropdownButtonFormField<String>(
+                            value: modelController.text,
+                            decoration: const InputDecoration(
+                              labelText: 'Model',
+                              border: OutlineInputBorder(),
+                              prefixIcon: Icon(Icons.model_training),
+                            ),
+                            items: const [
+                              DropdownMenuItem(
+                                value: 'openai/gpt-4o-mini',
+                                child: Text('GPT-4o Mini (Fast & Cheap)'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'openai/gpt-4o',
+                                child: Text('GPT-4o (Powerful)'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'anthropic/claude-3.5-sonnet',
+                                child: Text('Claude 3.5 Sonnet'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'anthropic/claude-3-haiku',
+                                child: Text('Claude 3 Haiku (Fast)'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'google/gemini-pro-1.5',
+                                child: Text('Gemini Pro 1.5'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'meta-llama/llama-3.1-70b-instruct',
+                                child: Text('Llama 3.1 70B'),
+                              ),
+                            ],
+                            onChanged: (value) async {
+                              if (value != null) {
+                                modelController.text = value;
+                                await _saveAISetting('AI_MODEL', value);
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('Model changed to $value'),
+                                      backgroundColor: Colors.green,
+                                    ),
+                                  );
+                                }
+                              }
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+
+                  // Info Card
+                  Card(
+                    color: Colors.blue[50],
+                    child: Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Row(
+                        children: [
+                          Icon(Icons.info_outline, color: Colors.blue[700]),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'About OpenRouter',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.blue[900],
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'OpenRouter provides access to multiple AI models through a single API. Teachers and students can use AI for homework help, explanations, and learning assistance.',
+                                  style: TextStyle(color: Colors.blue[800]),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<Map<String, String>> _loadAISettings() async {
+    try {
+      final supabase = ref.read(supabaseClientProvider);
+      final response = await supabase
+          .from('system_settings')
+          .select('setting_key, setting_value')
+          .inFilter('setting_key', [
+            'OPENROUTER_API_KEY',
+            'AI_MODEL',
+            'AI_ENABLED',
+          ]);
+
+      final settings = <String, String>{};
+      for (final row in response as List) {
+        settings[row['setting_key'] as String] =
+            (row['setting_value'] as String?) ?? '';
+      }
+      return settings;
+    } catch (e) {
+      return {};
+    }
+  }
+
+  Future<void> _saveAISetting(String key, String value) async {
+    try {
+      final supabase = ref.read(supabaseClientProvider);
+      await supabase.from('system_settings').upsert({
+        'setting_key': key,
+        'setting_value': value,
+        'updated_at': DateTime.now().toIso8601String(),
+      }, onConflict: 'setting_key');
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error saving: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   Widget _buildFilterBar(BuildContext context) {
@@ -816,6 +1126,309 @@ class _SuperAdminDashboardState extends ConsumerState<SuperAdminDashboard>
         ),
       ),
     );
+  }
+
+  Widget _buildFinancialsTab() {
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future: _loadFinancialData(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        if (snapshot.hasError) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.error_outline,
+                  size: 64,
+                  color: Theme.of(context).colorScheme.error,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Error loading financial data',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '${snapshot.error}',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
+            ),
+          );
+        }
+
+        final payments = snapshot.data ?? [];
+        final totalIncome = payments.fold<double>(
+          0,
+          (sum, p) => sum + ((p['amount'] as num?)?.toDouble() ?? 0),
+        );
+
+        // Group by institution type
+        final byType = <String, double>{};
+        for (final p in payments) {
+          final type = (p['institution_type'] as String?) ?? 'Other';
+          byType[type] =
+              (byType[type] ?? 0) + ((p['amount'] as num?)?.toDouble() ?? 0);
+        }
+
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Summary Cards
+              Row(
+                children: [
+                  Expanded(
+                    child: Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.account_balance_wallet,
+                                  color: Colors.green[700],
+                                  size: 32,
+                                ),
+                                const SizedBox(width: 12),
+                                Text(
+                                  'Total Income',
+                                  style: Theme.of(
+                                    context,
+                                  ).textTheme.titleMedium,
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'PKR ${NumberFormat('#,##0').format(totalIncome)}',
+                              style: Theme.of(context).textTheme.headlineMedium
+                                  ?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.green[700],
+                                  ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.receipt_long,
+                                  color: Colors.blue[700],
+                                  size: 32,
+                                ),
+                                const SizedBox(width: 12),
+                                Text(
+                                  'Total Transactions',
+                                  style: Theme.of(
+                                    context,
+                                  ).textTheme.titleMedium,
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              '${payments.length}',
+                              style: Theme.of(context).textTheme.headlineMedium
+                                  ?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.blue[700],
+                                  ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+
+              // Income by Institution Type
+              Text(
+                'Income by Institution Type',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const SizedBox(height: 16),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    children: [
+                      _buildIncomeRow(
+                        context,
+                        'Schools',
+                        byType['school'] ?? 0,
+                        Icons.school,
+                        Colors.blue,
+                      ),
+                      const Divider(),
+                      _buildIncomeRow(
+                        context,
+                        'Coaching Centers',
+                        byType['coaching_center'] ?? 0,
+                        Icons.menu_book,
+                        Colors.orange,
+                      ),
+                      const Divider(),
+                      _buildIncomeRow(
+                        context,
+                        'Madrasas',
+                        byType['madrasa'] ?? 0,
+                        Icons.mosque,
+                        Colors.green,
+                      ),
+                      const Divider(),
+                      _buildIncomeRow(
+                        context,
+                        'Tuition Centers',
+                        byType['tuition_center'] ?? 0,
+                        Icons.person,
+                        Colors.purple,
+                      ),
+                      const Divider(),
+                      _buildIncomeRow(
+                        context,
+                        'Other',
+                        byType['Other'] ?? 0,
+                        Icons.business,
+                        Colors.grey,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // Recent Transactions
+              Text(
+                'Recent Transactions',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const SizedBox(height: 16),
+              Card(
+                child: payments.isEmpty
+                    ? const Padding(
+                        padding: EdgeInsets.all(32),
+                        child: Center(child: Text('No transactions yet')),
+                      )
+                    : ListView.separated(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: payments.length > 20 ? 20 : payments.length,
+                        separatorBuilder: (_, __) => const Divider(height: 1),
+                        itemBuilder: (context, index) {
+                          final p = payments[index];
+                          return ListTile(
+                            leading: CircleAvatar(
+                              backgroundColor: Colors.green[100],
+                              child: Icon(
+                                Icons.attach_money,
+                                color: Colors.green[700],
+                              ),
+                            ),
+                            title: Text(p['school_name'] ?? 'Unknown'),
+                            subtitle: Text(
+                              '${p['institution_type'] ?? 'N/A'} • ${p['payment_method'] ?? 'N/A'}',
+                            ),
+                            trailing: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Text(
+                                  'PKR ${NumberFormat('#,##0').format((p['amount'] as num?)?.toDouble() ?? 0)}',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.green[700],
+                                  ),
+                                ),
+                                Text(
+                                  p['created_at'] != null
+                                      ? DateFormat('MMM d, yyyy').format(
+                                          DateTime.parse(p['created_at']),
+                                        )
+                                      : '',
+                                  style: Theme.of(context).textTheme.bodySmall,
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildIncomeRow(
+    BuildContext context,
+    String label,
+    double amount,
+    IconData icon,
+    Color color,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 28),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Text(label, style: Theme.of(context).textTheme.titleMedium),
+          ),
+          Text(
+            'PKR ${NumberFormat('#,##0').format(amount)}',
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<List<Map<String, dynamic>>> _loadFinancialData() async {
+    try {
+      final supabase = ref.read(supabaseClientProvider);
+      final response = await supabase
+          .from('subscription_payments')
+          .select('*, schools(name, institution_type)')
+          .order('created_at', ascending: false);
+
+      return (response as List<dynamic>).map((e) {
+        final map = e as Map<String, dynamic>;
+        final school = map['schools'] as Map<String, dynamic>?;
+        return {
+          ...map,
+          'school_name': school?['name'] ?? 'Unknown',
+          'institution_type': school?['institution_type'] ?? 'Other',
+        };
+      }).toList();
+    } catch (e) {
+      // Table may not exist yet, return empty
+      return [];
+    }
   }
 
   Future<void> _confirmAndUpdateStatus({

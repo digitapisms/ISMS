@@ -14,7 +14,7 @@ class ClassModel extends Equatable {
     this.updatedAt,
   });
 
-  final String id;
+  final int id;
   final String schoolId;
   final String name;
   final String? code;
@@ -27,7 +27,7 @@ class ClassModel extends Equatable {
 
   factory ClassModel.fromMap(Map<String, dynamic> map) {
     return ClassModel(
-      id: map['id'] as String,
+      id: map['id'] as int,
       schoolId: map['school_id'] as String,
       name: map['name'] as String,
       code: map['code'] as String?,
@@ -60,7 +60,7 @@ class ClassModel extends Equatable {
   }
 
   ClassModel copyWith({
-    String? id,
+    int? id,
     String? schoolId,
     String? name,
     String? code,

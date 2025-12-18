@@ -241,40 +241,7 @@ class _DashboardShellState extends ConsumerState<DashboardShell> {
 
     // Super Admin Dashboard
     if (authUser?.role == UserRole.superAdmin) {
-      return Scaffold(
-        appBar: AppBar(
-          title: const Text('ILMA Cloud Portal - Super Admin'),
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.palette_outlined),
-              onPressed: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => const ThemeSettingsScreen(),
-                  ),
-                );
-              },
-              tooltip: 'Theme Settings',
-            ),
-            if (authUser != null)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                child: Center(
-                  child: Text(
-                    authUser.email,
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                ),
-              ),
-            IconButton(
-              icon: const Icon(Icons.logout),
-              onPressed: _handleSignOut,
-              tooltip: 'Sign out',
-            ),
-          ],
-        ),
-        body: const SuperAdminDashboard(),
-      );
+      return const SuperAdminDashboard();
     }
 
     // Show applicant-specific screens

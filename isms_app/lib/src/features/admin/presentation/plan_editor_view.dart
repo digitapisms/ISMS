@@ -66,9 +66,7 @@ class _PlanEditorViewState extends ConsumerState<PlanEditorView> {
         };
       }).toList();
 
-      // TODO: Implement updatePlanFeatures in SubscriptionRepository
-      // await repo.updatePlanFeatures(planName: planName, features: features);
-      throw UnimplementedError('updatePlanFeatures not yet implemented');
+      await repo.updatePlanFeatures(planName: planName, features: features);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

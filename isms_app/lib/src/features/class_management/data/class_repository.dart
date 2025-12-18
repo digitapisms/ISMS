@@ -67,7 +67,7 @@ class ClassRepository {
   }
 
   /// Get a single class by ID
-  Future<ClassModel?> getClassById(String classId) async {
+  Future<ClassModel?> getClassById(int classId) async {
     final schoolId = _requireSchoolId();
     final response = await _client
         .from('classes')
@@ -107,7 +107,7 @@ class ClassRepository {
 
   /// Update a class
   Future<ClassModel> updateClass({
-    required String id,
+    required int id,
     String? name,
     String? code,
     String? level,
@@ -144,7 +144,7 @@ class ClassRepository {
   }
 
   /// Permanently delete a class (only if no students assigned)
-  Future<void> permanentlyDeleteClass(String id) async {
+  Future<void> permanentlyDeleteClass(int id) async {
     final schoolId = _requireSchoolId();
 
     // Check if class has students
@@ -182,7 +182,7 @@ class ClassRepository {
 
   /// Get all sections for a class
   Future<List<SectionModel>> getSections(
-    String classId, {
+    int classId, {
     bool? activeOnly,
   }) async {
     final schoolId = _requireSchoolId();
@@ -237,7 +237,7 @@ class ClassRepository {
 
   /// Create a new section
   Future<SectionModel> createSection({
-    required String classId,
+    required int classId,
     required String name,
     String? code,
     int? capacity,
@@ -262,7 +262,7 @@ class ClassRepository {
 
   /// Update a section
   Future<SectionModel> updateSection({
-    required String id,
+    required int id,
     String? name,
     String? code,
     int? capacity,
@@ -287,7 +287,7 @@ class ClassRepository {
   }
 
   /// Delete a section (soft delete)
-  Future<void> deleteSection(String id) async {
+  Future<void> deleteSection(int id) async {
     final schoolId = _requireSchoolId();
     await _client
         .from('sections')
@@ -297,7 +297,7 @@ class ClassRepository {
   }
 
   /// Permanently delete a section (only if no students assigned)
-  Future<void> permanentlyDeleteSection(String id) async {
+  Future<void> permanentlyDeleteSection(int id) async {
     final schoolId = _requireSchoolId();
 
     // Check if section has students

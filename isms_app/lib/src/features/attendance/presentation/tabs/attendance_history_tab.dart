@@ -243,8 +243,8 @@ class _AttendanceHistoryTabState extends ConsumerState<AttendanceHistoryTab> {
 class _ClassSelector extends ConsumerWidget {
   const _ClassSelector({this.selectedClassId, required this.onClassSelected});
 
-  final String? selectedClassId;
-  final ValueChanged<String?> onClassSelected;
+  final int? selectedClassId;
+  final ValueChanged<int?> onClassSelected;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -255,19 +255,19 @@ class _ClassSelector extends ConsumerWidget {
         if (classes.isEmpty) {
           return const Text('No classes available');
         }
-        return DropdownButtonFormField<String>(
+        return DropdownButtonFormField<int>(
           value: selectedClassId,
           decoration: const InputDecoration(
             labelText: 'Class (Optional)',
             border: OutlineInputBorder(),
           ),
           items: [
-            const DropdownMenuItem<String>(
+            const DropdownMenuItem<int>(
               value: null,
               child: Text('All Classes'),
             ),
             ...classes.map((cls) {
-              return DropdownMenuItem<String>(value: cls.id, child: Text(cls.name));
+              return DropdownMenuItem<int>(value: cls.id, child: Text(cls.name));
             }),
           ],
           onChanged: onClassSelected,
@@ -286,7 +286,7 @@ class _SectionSelector extends ConsumerWidget {
     required this.onSectionSelected,
   });
 
-  final String classId;
+  final int classId;
   final int? selectedSectionId;
   final ValueChanged<int?> onSectionSelected;
 
