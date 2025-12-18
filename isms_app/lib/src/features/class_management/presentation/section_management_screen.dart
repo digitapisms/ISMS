@@ -8,7 +8,7 @@ import 'section_form_dialog.dart';
 class SectionManagementScreen extends ConsumerStatefulWidget {
   const SectionManagementScreen({super.key, required this.classId});
 
-  final int classId;
+  final String classId;
 
   @override
   ConsumerState<SectionManagementScreen> createState() =>

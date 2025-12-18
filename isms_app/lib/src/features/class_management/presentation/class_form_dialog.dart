@@ -62,7 +62,7 @@ class _ClassFormDialogState extends ConsumerState<ClassFormDialog> {
               : _codeController.text.trim(),
           level: _levelController.text.trim().isEmpty
               ? null
-              : int.tryParse(_levelController.text.trim()),
+              : _levelController.text.trim(),
           description: _descriptionController.text.trim().isEmpty
               ? null
               : _descriptionController.text.trim(),
@@ -78,7 +78,7 @@ class _ClassFormDialogState extends ConsumerState<ClassFormDialog> {
               : _codeController.text.trim(),
           level: _levelController.text.trim().isEmpty
               ? null
-              : int.tryParse(_levelController.text.trim()),
+              : _levelController.text.trim(),
           description: _descriptionController.text.trim().isEmpty
               ? null
               : _descriptionController.text.trim(),

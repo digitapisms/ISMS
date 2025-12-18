@@ -14,11 +14,11 @@ class ClassModel extends Equatable {
     this.updatedAt,
   });
 
-  final int id;
+  final String id;
   final String schoolId;
   final String name;
   final String? code;
-  final int? level;
+  final String? level;
   final String? description;
   final bool isActive;
   final int? sectionCount; // Populated when fetched with count
@@ -27,11 +27,11 @@ class ClassModel extends Equatable {
 
   factory ClassModel.fromMap(Map<String, dynamic> map) {
     return ClassModel(
-      id: map['id'] as int,
+      id: map['id'] as String,
       schoolId: map['school_id'] as String,
       name: map['name'] as String,
       code: map['code'] as String?,
-      level: map['level'] as int?, // Column may not exist in database
+      level: map['grade_level'] as String?,
       description: map['description'] as String?,
       isActive: (map['is_active'] as bool?) ?? true,
       sectionCount: map['section_count'] as int?,
@@ -50,7 +50,7 @@ class ClassModel extends Equatable {
       'school_id': schoolId,
       'name': name,
       'code': code,
-      'level': level,
+      'grade_level': level,
       'description': description,
       'is_active': isActive,
       'section_count': sectionCount,
@@ -60,11 +60,11 @@ class ClassModel extends Equatable {
   }
 
   ClassModel copyWith({
-    int? id,
+    String? id,
     String? schoolId,
     String? name,
     String? code,
-    int? level,
+    String? level,
     String? description,
     bool? isActive,
     int? sectionCount,

@@ -67,7 +67,7 @@ class ClassRepository {
   }
 
   /// Get a single class by ID
-  Future<ClassModel?> getClassById(int classId) async {
+  Future<ClassModel?> getClassById(String classId) async {
     final schoolId = _requireSchoolId();
     final response = await _client
         .from('classes')
@@ -84,7 +84,7 @@ class ClassRepository {
   Future<ClassModel> createClass({
     required String name,
     String? code,
-    int? level,
+    String? level,
     String? description,
     bool isActive = true,
   }) async {
@@ -107,10 +107,10 @@ class ClassRepository {
 
   /// Update a class
   Future<ClassModel> updateClass({
-    required int id,
+    required String id,
     String? name,
     String? code,
-    int? level,
+    String? level,
     String? description,
     bool? isActive,
   }) async {
@@ -144,7 +144,7 @@ class ClassRepository {
   }
 
   /// Permanently delete a class (only if no students assigned)
-  Future<void> permanentlyDeleteClass(int id) async {
+  Future<void> permanentlyDeleteClass(String id) async {
     final schoolId = _requireSchoolId();
 
     // Check if class has students
@@ -182,7 +182,7 @@ class ClassRepository {
 
   /// Get all sections for a class
   Future<List<SectionModel>> getSections(
-    int classId, {
+    String classId, {
     bool? activeOnly,
   }) async {
     final schoolId = _requireSchoolId();
@@ -237,7 +237,7 @@ class ClassRepository {
 
   /// Create a new section
   Future<SectionModel> createSection({
-    required int classId,
+    required String classId,
     required String name,
     String? code,
     int? capacity,
@@ -262,7 +262,7 @@ class ClassRepository {
 
   /// Update a section
   Future<SectionModel> updateSection({
-    required int id,
+    required String id,
     String? name,
     String? code,
     int? capacity,
@@ -287,7 +287,7 @@ class ClassRepository {
   }
 
   /// Delete a section (soft delete)
-  Future<void> deleteSection(int id) async {
+  Future<void> deleteSection(String id) async {
     final schoolId = _requireSchoolId();
     await _client
         .from('sections')
@@ -297,7 +297,7 @@ class ClassRepository {
   }
 
   /// Permanently delete a section (only if no students assigned)
-  Future<void> permanentlyDeleteSection(int id) async {
+  Future<void> permanentlyDeleteSection(String id) async {
     final schoolId = _requireSchoolId();
 
     // Check if section has students

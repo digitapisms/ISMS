@@ -14,8 +14,8 @@ class SectionModel extends Equatable {
     this.updatedAt,
   });
 
-  final int id;
-  final int classId;
+  final String id;
+  final String classId;
   final String schoolId;
   final String name;
   final String? code;
@@ -27,8 +27,8 @@ class SectionModel extends Equatable {
 
   factory SectionModel.fromMap(Map<String, dynamic> map) {
     return SectionModel(
-      id: map['id'] as int,
-      classId: map['class_id'] as int,
+      id: map['id'] as String,
+      classId: map['class_id'] as String,
       schoolId: map['school_id'] as String,
       name: map['name'] as String,
       code: map['code'] as String?,
@@ -60,8 +60,8 @@ class SectionModel extends Equatable {
   }
 
   SectionModel copyWith({
-    int? id,
-    int? classId,
+    String? id,
+    String? classId,
     String? schoolId,
     String? name,
     String? code,

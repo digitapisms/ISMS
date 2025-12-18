@@ -19,7 +19,7 @@ final classesProvider = FutureProvider<List<ClassModel>>((ref) async {
   return repo.getClasses(activeOnly: true);
 });
 
-final classProvider = FutureProvider.family<ClassModel?, int>((
+final classProvider = FutureProvider.family<ClassModel?, String>((
   ref,
   classId,
 ) async {
@@ -27,7 +27,7 @@ final classProvider = FutureProvider.family<ClassModel?, int>((
   return repo.getClassById(classId);
 });
 
-final sectionsProvider = FutureProvider.family<List<SectionModel>, int>((
+final sectionsProvider = FutureProvider.family<List<SectionModel>, String>((
   ref,
   classId,
 ) async {
@@ -35,7 +35,7 @@ final sectionsProvider = FutureProvider.family<List<SectionModel>, int>((
   return repo.getSections(classId, activeOnly: true);
 });
 
-final sectionProvider = FutureProvider.family<SectionModel?, int>((
+final sectionProvider = FutureProvider.family<SectionModel?, String>((
   ref,
   sectionId,
 ) async {

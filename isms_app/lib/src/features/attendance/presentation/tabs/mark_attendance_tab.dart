@@ -13,8 +13,8 @@ class MarkAttendanceTab extends ConsumerStatefulWidget {
 }
 
 class _MarkAttendanceTabState extends ConsumerState<MarkAttendanceTab> {
-  int? _selectedClassId;
-  int? _selectedSectionId;
+  String? _selectedClassId;
+  String? _selectedSectionId;
   DateTime _selectedDate = DateTime.now();
 
   @override
@@ -68,14 +68,14 @@ class _MarkAttendanceTabState extends ConsumerState<MarkAttendanceTab> {
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      DropdownButtonFormField<int>(
-                        initialValue: _selectedClassId,
+                      DropdownButtonFormField<String>(
+                        value: _selectedClassId,
                         decoration: const InputDecoration(
                           labelText: 'Class *',
                           border: OutlineInputBorder(),
                         ),
                         items: classes.map((cls) {
-                          return DropdownMenuItem(
+                          return DropdownMenuItem<String>(
                             value: cls.id,
                             child: Text(cls.name),
                           );
