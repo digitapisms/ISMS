@@ -99,8 +99,6 @@ class _SuperAdminDashboardState extends ConsumerState<SuperAdminDashboard>
             },
             tooltip: 'Theme Settings',
           ),
-          // Language Selector
-          const LanguageSelector(),
           if (_isSelectionMode && _selectedSchoolIds.isNotEmpty) ...[
             IconButton(
               icon: const Icon(Icons.check_circle),

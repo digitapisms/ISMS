@@ -29,8 +29,7 @@ final allPlansProvider = FutureProvider<List<SubscriptionPlan>>((ref) async {
 // All available features
 final allFeaturesProvider = FutureProvider<List<PlanFeature>>((ref) async {
   final repo = ref.read(subscriptionRepositoryProvider);
-  // TODO: Implement getAllFeatures in repository or return empty list for now
-  return [];
+  return repo.getAllFeatures();
 });
 
 // Specific plan by ID

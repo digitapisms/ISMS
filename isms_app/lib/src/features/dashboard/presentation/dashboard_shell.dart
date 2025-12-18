@@ -256,7 +256,6 @@ class _DashboardShellState extends ConsumerState<DashboardShell> {
               },
               tooltip: 'Theme Settings',
             ),
-            const LanguageSelector(),
             if (authUser != null)
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -316,7 +315,6 @@ class _DashboardShellState extends ConsumerState<DashboardShell> {
               },
               tooltip: 'Theme Settings',
             ),
-            const LanguageSelector(),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8),
               child: Center(
@@ -388,7 +386,6 @@ class _DashboardShellState extends ConsumerState<DashboardShell> {
                     tooltip: 'Theme Settings',
                   ),
                 ),
-                const LanguageSelector(),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 8),
                   child: Center(

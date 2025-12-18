@@ -1,10 +1,25 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/network/supabase_client.dart';
+import '../domain/plan_feature.dart';
 import '../domain/subscription_plan.dart';
 
 class SubscriptionRepository {
   SupabaseClient get _client => SupabaseManager.client;
+
+  /// Get all available plan features
+  Future<List<PlanFeature>> getAllFeatures() async {
+    final response = await _client
+        .from('plan_features')
+        .select()
+        .order('category')
+        .order('feature_name');
+
+    final data = response as List<dynamic>;
+    return data
+        .map((row) => PlanFeature.fromMap(row as Map<String, dynamic>))
+        .toList();
+  }
 
   /// Get all available subscription plans
   Future<List<SubscriptionPlan>> getAllPlans() async {
@@ -111,13 +126,8 @@ class SubscriptionRepository {
 
     final normalizedPlan = planName.toLowerCase();
     final enabledByPlan = <String, Set<String>>{
-      'free': {
-        'student_list_view',
-      },
-      'basic': {
-        'student_list_view',
-        'notifications',
-      },
+      'free': {'student_list_view'},
+      'basic': {'student_list_view', 'notifications'},
       'premium': {
         'notifications',
         'reports',
@@ -142,13 +152,8 @@ class SubscriptionRepository {
 
     final normalizedPlan = planName.toLowerCase();
     final limitsByPlan = <String, Map<String, int>>{
-      'free': {
-        'student_list_view': 50,
-      },
-      'basic': {
-        'student_list_view': 200,
-        'notifications': 100,
-      },
+      'free': {'student_list_view': 50},
+      'basic': {'student_list_view': 200, 'notifications': 100},
       'premium': {
         'notifications': 1000,
         'reports': 10,
