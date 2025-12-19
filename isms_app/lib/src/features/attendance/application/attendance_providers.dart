@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../school_registration/application/school_providers.dart';
@@ -14,14 +15,19 @@ final attendanceRepositoryProvider = Provider<AttendanceRepository>((ref) {
 /// Provider for fetching students for attendance marking
 final studentsForAttendanceProvider =
     FutureProvider.family<List<Student>, AttendanceFilter>((ref, filter) async {
-      final school = ref.watch(currentSchoolProvider);
-      if (school == null) return const [];
-      final repo = ref.read(attendanceRepositoryProvider);
-      return repo.fetchStudentsForAttendance(
-        schoolId: school.id,
-        classId: filter.classId,
-        sectionId: filter.sectionId,
-      );
+      try {
+        final school = ref.watch(currentSchoolProvider);
+        if (school == null) return const [];
+        final repo = ref.read(attendanceRepositoryProvider);
+        return await repo.fetchStudentsForAttendance(
+          schoolId: school.id,
+          classId: filter.classId,
+          sectionId: filter.sectionId,
+        );
+      } catch (e) {
+        debugPrint('Error fetching students for attendance: $e');
+        return const [];
+      }
     });
 
 /// Provider for class attendance on a specific date
@@ -30,15 +36,20 @@ final classAttendanceProvider =
       ref,
       filter,
     ) async {
-      final school = ref.watch(currentSchoolProvider);
-      if (school == null) return const [];
-      final repo = ref.read(attendanceRepositoryProvider);
-      return repo.fetchClassAttendance(
-        schoolId: school.id,
-        classId: filter.classId,
-        sectionId: filter.sectionId,
-        attendanceDate: filter.attendanceDate,
-      );
+      try {
+        final school = ref.watch(currentSchoolProvider);
+        if (school == null) return const [];
+        final repo = ref.read(attendanceRepositoryProvider);
+        return await repo.fetchClassAttendance(
+          schoolId: school.id,
+          classId: filter.classId,
+          sectionId: filter.sectionId,
+          attendanceDate: filter.attendanceDate,
+        );
+      } catch (e) {
+        debugPrint('Error fetching class attendance: $e');
+        return const [];
+      }
     });
 
 /// Provider for student attendance history
@@ -79,8 +90,28 @@ final classAttendanceSummaryProvider =
       ref,
       filter,
     ) async {
-      final school = ref.watch(currentSchoolProvider);
-      if (school == null) {
+      try {
+        final school = ref.watch(currentSchoolProvider);
+        if (school == null) {
+          return const AttendanceSummary(
+            totalStudents: 0,
+            presentCount: 0,
+            absentCount: 0,
+            lateCount: 0,
+            excusedCount: 0,
+            halfDayCount: 0,
+            markedCount: 0,
+          );
+        }
+        final repo = ref.read(attendanceRepositoryProvider);
+        return await repo.getClassAttendanceSummary(
+          schoolId: school.id,
+          classId: filter.classId,
+          sectionId: filter.sectionId,
+          attendanceDate: filter.attendanceDate,
+        );
+      } catch (e) {
+        debugPrint('Error fetching attendance summary: $e');
         return const AttendanceSummary(
           totalStudents: 0,
           presentCount: 0,
@@ -91,13 +122,6 @@ final classAttendanceSummaryProvider =
           markedCount: 0,
         );
       }
-      final repo = ref.read(attendanceRepositoryProvider);
-      return repo.getClassAttendanceSummary(
-        schoolId: school.id,
-        classId: filter.classId,
-        sectionId: filter.sectionId,
-        attendanceDate: filter.attendanceDate,
-      );
     });
 
 // Filter classes

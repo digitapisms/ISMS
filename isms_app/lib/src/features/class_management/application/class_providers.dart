@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/tenant/tenant_context.dart';
@@ -10,35 +11,62 @@ final classRepositoryProvider = Provider<ClassRepository>((ref) {
   final repo = ClassRepository();
   final tenantSchool = ref.watch(tenantContextProvider);
   final authUser = ref.watch(authStateProvider);
-  repo.setSchoolId(tenantSchool?.id ?? authUser?.schoolId);
+  final schoolId = tenantSchool?.id ?? authUser?.schoolId;
+  if (schoolId != null) {
+    repo.setSchoolId(schoolId);
+  }
   return repo;
 });
 
 final classesProvider = FutureProvider<List<ClassModel>>((ref) async {
-  final repo = ref.read(classRepositoryProvider);
-  return repo.getClasses(activeOnly: true);
+  try {
+    // Watch school context to refresh when it changes
+    ref.watch(tenantContextProvider);
+    ref.watch(authStateProvider);
+
+    final repo = ref.read(classRepositoryProvider);
+    return await repo.getClasses(activeOnly: true);
+  } catch (e) {
+    debugPrint('Error fetching classes: $e');
+    return const [];
+  }
 });
 
 final classProvider = FutureProvider.family<ClassModel?, int>((
   ref,
   classId,
 ) async {
-  final repo = ref.read(classRepositoryProvider);
-  return repo.getClassById(classId);
+  try {
+    final repo = ref.read(classRepositoryProvider);
+    return await repo.getClassById(classId);
+  } catch (e) {
+    debugPrint('Error fetching class: $e');
+    return null;
+  }
 });
 
 final sectionsProvider = FutureProvider.family<List<SectionModel>, int>((
   ref,
   classId,
 ) async {
-  final repo = ref.read(classRepositoryProvider);
-  return repo.getSections(classId, activeOnly: true);
+  try {
+    final repo = ref.read(classRepositoryProvider);
+    return await repo.getSections(classId, activeOnly: true);
+  } catch (e) {
+    debugPrint('Error fetching sections: $e');
+    return const [];
+  }
 });
 
 final sectionProvider = FutureProvider.family<SectionModel?, int>((
   ref,
   sectionId,
 ) async {
-  final repo = ref.read(classRepositoryProvider);
-  return repo.getSectionById(sectionId);
+  try {
+    final repo = ref.read(classRepositoryProvider);
+    return await repo.getSectionById(sectionId);
+  } catch (e) {
+    debugPrint('Error fetching section: $e');
+    return null;
+  }
 });

@@ -30,7 +30,10 @@ class ClassRepository {
 
   /// Get all classes for the current school
   Future<List<ClassModel>> getClasses({bool? activeOnly}) async {
-    final schoolId = _requireSchoolId();
+    final schoolId = _schoolId;
+    if (schoolId == null) {
+      return const [];
+    }
     final baseQuery = _client
         .from('classes')
         .select()
@@ -40,8 +43,7 @@ class ClassRepository {
         ? baseQuery.eq('is_active', true)
         : baseQuery;
 
-    final response = await filteredQuery
-        .order('name', ascending: true);
+    final response = await filteredQuery.order('name', ascending: true);
     final data = response;
 
     // Get section counts separately
@@ -185,7 +187,10 @@ class ClassRepository {
     int classId, {
     bool? activeOnly,
   }) async {
-    final schoolId = _requireSchoolId();
+    final schoolId = _schoolId;
+    if (schoolId == null) {
+      return const [];
+    }
     final baseQuery = _client
         .from('sections')
         .select()
