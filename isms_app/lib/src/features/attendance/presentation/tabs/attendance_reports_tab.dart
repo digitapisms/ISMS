@@ -202,7 +202,7 @@ class _ClassSelector extends ConsumerWidget {
           return const Text('No classes available');
         }
         return DropdownButtonFormField<int>(
-          value: selectedClassId,
+          initialValue: selectedClassId,
           decoration: const InputDecoration(
             labelText: 'Class',
             border: OutlineInputBorder(),
@@ -278,14 +278,24 @@ class _StudentSelector extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final studentsAsync = ref.watch(
-      studentsForAttendanceProvider(
-        AttendanceFilter(classId: classId, sectionId: sectionId),
-      ),
-    );
+    // Cache filter object to ensure stable provider key
+    final filter = AttendanceFilter(classId: classId, sectionId: sectionId);
+
+    final studentsAsync = ref.watch(studentsForAttendanceProvider(filter));
 
     return studentsAsync.when(
       data: (students) {
+        if (students.isEmpty) {
+          return DropdownButtonFormField<String>(
+            decoration: const InputDecoration(
+              labelText: 'Student',
+              border: OutlineInputBorder(),
+              helperText: 'No students available',
+            ),
+            items: const [],
+            onChanged: (_) {}, // No-op since no items
+          );
+        }
         return DropdownButtonFormField<String>(
           initialValue: selectedStudentId,
           decoration: const InputDecoration(
@@ -301,8 +311,29 @@ class _StudentSelector extends ConsumerWidget {
           onChanged: onStudentSelected,
         );
       },
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (_, __) => const SizedBox.shrink(),
+      loading: () => DropdownButtonFormField<String>(
+        decoration: const InputDecoration(
+          labelText: 'Student',
+          border: OutlineInputBorder(),
+          suffixIcon: SizedBox(
+            width: 16,
+            height: 16,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        ),
+        items: const [],
+        onChanged: null,
+      ),
+      error: (error, _) => DropdownButtonFormField<String>(
+        decoration: const InputDecoration(
+          labelText: 'Student',
+          border: OutlineInputBorder(),
+          errorText: 'Failed to load students',
+          helperText: 'Please try selecting class/section again',
+        ),
+        items: const [],
+        onChanged: (_) {}, // No-op since error state
+      ),
     );
   }
 }
@@ -455,24 +486,60 @@ class _StudentStatsCard extends ConsumerWidget {
         child: Padding(
           padding: const EdgeInsets.all(32),
           child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.error_outline, size: 48, color: Colors.red[300]),
+              Icon(Icons.error_outline, size: 64, color: Colors.red[300]),
               const SizedBox(height: 16),
               Text(
                 'Failed to load statistics',
-                style: Theme.of(context).textTheme.titleMedium,
+                style: Theme.of(
+                  context,
+                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                textAlign: TextAlign.center,
               ),
               const SizedBox(height: 8),
               Text(
-                error.toString(),
-                style: Theme.of(context).textTheme.bodySmall,
+                _getErrorMessage(error),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
                 textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton.icon(
+                onPressed: () {
+                  ref.invalidate(
+                    studentAttendanceStatsProvider(
+                      StudentAttendanceStatsFilter(
+                        studentId: studentId,
+                        startDate: startDate,
+                        endDate: endDate,
+                      ),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.refresh),
+                label: const Text('Retry'),
               ),
             ],
           ),
         ),
       ),
     );
+  }
+
+  String _getErrorMessage(Object error) {
+    final errorString = error.toString().toLowerCase();
+    if (errorString.contains('network') || errorString.contains('connection')) {
+      return 'Network error. Please check your internet connection and try again.';
+    } else if (errorString.contains('timeout')) {
+      return 'Request timed out. Please try again.';
+    } else if (errorString.contains('permission') ||
+        errorString.contains('unauthorized')) {
+      return 'You do not have permission to view this data.';
+    } else {
+      return 'An error occurred while loading statistics. Please try again.';
+    }
   }
 
   Color _getPercentageColor(double percentage) {

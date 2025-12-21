@@ -142,10 +142,26 @@ final featureCheckerProvider = Provider<FeatureChecker>((ref) {
   return FeatureChecker(subscriptionRepo, school);
 });
 
+typedef FeatureCheckArgs = ({String featureKey, int? currentUsage});
+
 /// Provider for checking a specific feature
-final featureCheckProvider =
-    FutureProvider.family<FeatureCheckResult, String>((ref, featureKey) async {
+final featureCheckProvider = FutureProvider.family<FeatureCheckResult, String>((
+  ref,
+  featureKey,
+) async {
   final checker = ref.read(featureCheckerProvider);
   return checker.checkFeature(featureKey);
 });
 
+/// Provider for checking a feature with usage (stable key for FeatureGuard)
+final featureCheckWithUsageProvider =
+    FutureProvider.family<FeatureCheckResult, FeatureCheckArgs>((
+      ref,
+      args,
+    ) async {
+      final checker = ref.read(featureCheckerProvider);
+      return checker.checkFeature(
+        args.featureKey,
+        currentUsage: args.currentUsage,
+      );
+    });

@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../application/timetable_providers.dart';
-import '../../../school_registration/application/school_providers.dart';
+import '../../../../core/tenant/school_context_provider.dart';
+import '../../../../core/tenant/tenant_context.dart';
+import '../../../authentication/application/auth_providers.dart';
 
 /// Tab for detecting and resolving schedule conflicts
 class ConflictsTab extends ConsumerStatefulWidget {
@@ -22,11 +24,17 @@ class _ConflictsTabState extends ConsumerState<ConflictsTab> {
     });
 
     try {
-      final school = ref.read(currentSchoolProvider);
-      if (school == null) throw Exception('School not found');
+      final tenantSchool = ref.read(tenantContextProvider);
+      final authUser = ref.read(authStateProvider);
+      final loadedSchool =
+          tenantSchool ?? await ref.read(schoolContextLoaderProvider.future);
+      final schoolId = loadedSchool?.id ?? authUser?.schoolId;
+      if (schoolId == null) {
+        throw Exception('School context not available. Please sign in again.');
+      }
 
       final repo = ref.read(timetableRepositoryProvider);
-      final conflicts = await repo.detectConflicts(schoolId: school.id);
+      final conflicts = await repo.detectConflicts(schoolId: schoolId);
 
       setState(() {
         _conflicts = conflicts;

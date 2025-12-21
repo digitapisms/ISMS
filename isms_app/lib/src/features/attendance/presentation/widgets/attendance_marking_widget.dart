@@ -26,50 +26,65 @@ class AttendanceMarkingWidget extends ConsumerStatefulWidget {
 
 class _AttendanceMarkingWidgetState
     extends ConsumerState<AttendanceMarkingWidget> {
-  final Map<String, AttendanceStatus> _attendanceMap = {};
-  final Map<String, String> _notesMap = {};
+  /// User edits only (do not preload from DB to avoid init/race loops).
+  final Map<String, AttendanceStatus> _statusOverrides = {};
+  final Map<String, String> _notesOverrides = {};
   bool _isSaving = false;
+  bool _useExistingValues = true;
+  String _filterKey = '';
+
+  @override
+  void didUpdateWidget(covariant AttendanceMarkingWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    final nextKey = _computeFilterKey(
+      classId: widget.classId,
+      sectionId: widget.sectionId,
+      date: widget.attendanceDate,
+    );
+
+    // If the user changes class/section/date, don't leak previous overrides.
+    if (_filterKey.isNotEmpty && _filterKey != nextKey) {
+      setState(() {
+        _statusOverrides.clear();
+        _notesOverrides.clear();
+        _useExistingValues = true;
+        _filterKey = nextKey;
+      });
+    }
+  }
+
+  String _computeFilterKey({
+    required int classId,
+    required int? sectionId,
+    required DateTime date,
+  }) {
+    // Keep it stable and date-only (matches DB date storage).
+    final y = date.year.toString().padLeft(4, '0');
+    final m = date.month.toString().padLeft(2, '0');
+    final d = date.day.toString().padLeft(2, '0');
+    return '$classId:${sectionId ?? 'all'}:$y-$m-$d';
+  }
 
   @override
   Widget build(BuildContext context) {
-    final studentsAsync = ref.watch(
-      studentsForAttendanceProvider(
-        AttendanceFilter(classId: widget.classId, sectionId: widget.sectionId),
-      ),
+    _filterKey = _computeFilterKey(
+      classId: widget.classId,
+      sectionId: widget.sectionId,
+      date: widget.attendanceDate,
     );
 
-    final summaryAsync = ref.watch(
-      classAttendanceSummaryProvider(
-        ClassAttendanceSummaryFilter(
-          classId: widget.classId,
-          sectionId: widget.sectionId,
-          attendanceDate: widget.attendanceDate,
-        ),
-      ),
+    final filter = AttendanceMarkingDataFilter(
+      classId: widget.classId,
+      sectionId: widget.sectionId,
+      attendanceDate: widget.attendanceDate,
     );
 
-    final existingAttendanceAsync = ref.watch(
-      classAttendanceProvider(
-        ClassAttendanceFilter(
-          classId: widget.classId,
-          sectionId: widget.sectionId,
-          attendanceDate: widget.attendanceDate,
-        ),
-      ),
-    );
+    final dataAsync = ref.watch(attendanceMarkingDataProvider(filter));
 
-    return studentsAsync.when(
-      data: (students) {
-        // Load existing attendance into map
-        existingAttendanceAsync.whenData((records) {
-          for (final record in records) {
-            if (!_attendanceMap.containsKey(record.studentId)) {
-              _attendanceMap[record.studentId] = record.status;
-              _notesMap[record.studentId] = record.notes ?? '';
-            }
-          }
-        });
-
+    return dataAsync.when(
+      data: (data) {
+        final students = data.students;
         if (students.isEmpty) {
           return Center(
             child: Column(
@@ -83,19 +98,54 @@ class _AttendanceMarkingWidgetState
                     context,
                   ).textTheme.titleMedium?.copyWith(color: Colors.grey[600]),
                 ),
+                const SizedBox(height: 8),
+                Text(
+                  'Please check if students are enrolled in this class/section',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(color: Colors.grey[500]),
+                  textAlign: TextAlign.center,
+                ),
               ],
             ),
           );
         }
 
+        final existingByStudentId = data.existingByStudentId;
+
         return Column(
           children: [
-            // Summary Card
-            summaryAsync.when(
-              data: (summary) => _SummaryCard(summary: summary),
-              loading: () => const LinearProgressIndicator(),
-              error: (_, __) => const SizedBox.shrink(),
-            ),
+            if (data.warning != null)
+              Container(
+                margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.orange[50],
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.orange[200]!),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.warning_amber_rounded,
+                      color: Colors.orange[700],
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        data.warning!,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Colors.orange[900],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+            if (data.summary != null) _SummaryCard(summary: data.summary!),
+
             // Quick Actions
             Container(
               padding: const EdgeInsets.all(16),
@@ -123,8 +173,9 @@ class _AttendanceMarkingWidgetState
                     color: Colors.grey,
                     onPressed: () {
                       setState(() {
-                        _attendanceMap.clear();
-                        _notesMap.clear();
+                        _statusOverrides.clear();
+                        _notesOverrides.clear();
+                        _useExistingValues = false;
                       });
                     },
                   ),
@@ -138,19 +189,34 @@ class _AttendanceMarkingWidgetState
                 itemCount: students.length,
                 itemBuilder: (context, index) {
                   final student = students[index];
+                  final existing = existingByStudentId[student.id];
+                  final existingStatus = existing?.status;
+                  final existingNotes = existing?.notes ?? '';
+
                   final status =
-                      _attendanceMap[student.id] ?? AttendanceStatus.present;
+                      _statusOverrides[student.id] ??
+                      (_useExistingValues
+                          ? (existingStatus ?? AttendanceStatus.present)
+                          : AttendanceStatus.present);
+                  final notes =
+                      _notesOverrides[student.id] ??
+                      (_useExistingValues ? existingNotes : '');
+
                   return _StudentAttendanceCard(
                     student: student,
                     status: status,
-                    notes: _notesMap[student.id] ?? '',
+                    notes: notes,
                     onStatusChanged: (newStatus) {
                       setState(() {
-                        _attendanceMap[student.id] = newStatus;
+                        _statusOverrides[student.id] = newStatus;
+                        _useExistingValues = false;
                       });
                     },
                     onNotesChanged: (notes) {
-                      _notesMap[student.id] = notes;
+                      setState(() {
+                        _notesOverrides[student.id] = notes;
+                        _useExistingValues = false;
+                      });
                     },
                   );
                 },
@@ -190,34 +256,84 @@ class _AttendanceMarkingWidgetState
           ],
         );
       },
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, stack) => Center(
+      loading: () => Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.error_outline, size: 48, color: Colors.red[300]),
+            const CircularProgressIndicator(),
             const SizedBox(height: 16),
             Text(
-              'Failed to load students',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              error.toString(),
-              style: Theme.of(context).textTheme.bodySmall,
-              textAlign: TextAlign.center,
+              'Loading attendance…',
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
             ),
           ],
+        ),
+      ),
+      error: (error, _) => Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.error_outline, size: 64, color: Colors.red[300]),
+              const SizedBox(height: 16),
+              Text(
+                'Unable to load attendance',
+                style: Theme.of(
+                  context,
+                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                _getErrorMessage(error),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton.icon(
+                onPressed: () {
+                  setState(() {
+                    _statusOverrides.clear();
+                    _notesOverrides.clear();
+                    _useExistingValues = true;
+                  });
+                  ref.invalidate(attendanceMarkingDataProvider(filter));
+                },
+                icon: const Icon(Icons.refresh),
+                label: const Text('Retry'),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
+  String _getErrorMessage(Object error) {
+    final errorString = error.toString().toLowerCase();
+    if (errorString.contains('network') || errorString.contains('connection')) {
+      return 'Network error. Please check your internet connection and try again.';
+    } else if (errorString.contains('timeout')) {
+      return 'Request timed out. Please try again.';
+    } else if (errorString.contains('permission') ||
+        errorString.contains('unauthorized')) {
+      return 'You do not have permission to view this data.';
+    } else {
+      return 'An error occurred while loading students. Please try again.';
+    }
+  }
+
   void _markAll(List<Student> students, AttendanceStatus status) {
     setState(() {
       for (final student in students) {
-        _attendanceMap[student.id] = status;
+        _statusOverrides[student.id] = status;
       }
+      _useExistingValues = false;
     });
   }
 
@@ -236,13 +352,14 @@ class _AttendanceMarkingWidgetState
 
       final repo = ref.read(attendanceRepositoryProvider);
       final records = students.map((student) {
-        final status = _attendanceMap[student.id] ?? AttendanceStatus.present;
+        final status = _statusOverrides[student.id] ?? AttendanceStatus.present;
+        final notesValue = _notesOverrides[student.id];
         return {
           'student_id': student.id,
           'status': status.dbValue,
-          'notes': _notesMap[student.id]?.trim().isEmpty == true
-              ? null
-              : _notesMap[student.id]?.trim(),
+          'notes': (notesValue?.trim().isNotEmpty ?? false)
+              ? notesValue!.trim()
+              : null,
         };
       }).toList();
 
@@ -254,25 +371,25 @@ class _AttendanceMarkingWidgetState
         records: records,
       );
 
-      // Invalidate providers to refresh data
+      // Refresh the composite provider (single source of truth for this screen).
       ref.invalidate(
-        classAttendanceProvider(
-          ClassAttendanceFilter(
+        attendanceMarkingDataProvider(
+          AttendanceMarkingDataFilter(
             classId: widget.classId,
             sectionId: widget.sectionId,
             attendanceDate: widget.attendanceDate,
           ),
         ),
       );
-      ref.invalidate(
-        classAttendanceSummaryProvider(
-          ClassAttendanceSummaryFilter(
-            classId: widget.classId,
-            sectionId: widget.sectionId,
-            attendanceDate: widget.attendanceDate,
-          ),
-        ),
-      );
+
+      // Reset local overrides so UI reflects the freshly loaded DB state.
+      if (mounted) {
+        setState(() {
+          _statusOverrides.clear();
+          _notesOverrides.clear();
+          _useExistingValues = true;
+        });
+      }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

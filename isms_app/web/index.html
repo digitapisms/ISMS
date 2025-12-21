@@ -35,6 +35,38 @@
 <body>
   <!-- Load environment configuration BEFORE Flutter app (synchronously) -->
   <script src="config.js"></script>
+  <script>
+    // Mitigate "stuck on old build" + odd network behavior caused by stale service workers.
+    // - Default: ask SW to update in the background.
+    // - If you ever need a hard reset, open the app with `?sw=reset` once.
+    (function () {
+      if (!('serviceWorker' in navigator)) return;
+
+      var params = new URLSearchParams(window.location.search);
+      var shouldReset = params.get('sw') === 'reset';
+
+      navigator.serviceWorker.getRegistrations().then(function (regs) {
+        regs.forEach(function (reg) {
+          if (shouldReset) {
+            reg.unregister();
+          } else {
+            // Trigger an update check (won't break offline/PWA).
+            reg.update();
+          }
+        });
+
+        if (shouldReset) {
+          // Remove the parameter and reload once.
+          params.delete('sw');
+          var nextUrl =
+            window.location.pathname +
+            (params.toString() ? '?' + params.toString() : '') +
+            window.location.hash;
+          window.location.replace(nextUrl);
+        }
+      });
+    })();
+  </script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

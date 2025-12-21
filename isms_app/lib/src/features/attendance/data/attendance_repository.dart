@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/network/supabase_client.dart';
@@ -134,11 +136,38 @@ class AttendanceRepository {
     }
     query = query.order('student_id');
 
-    final response = await query;
-    final responseList = response as List;
-    return responseList
-        .map((row) => AttendanceRecord.fromMap(row as Map<String, dynamic>))
-        .toList();
+    try {
+      final response = await query.timeout(
+        const Duration(seconds: 15),
+        onTimeout: () {
+          throw TimeoutException(
+            'Failed to fetch attendance: timeout after 15 seconds',
+            const Duration(seconds: 15),
+          );
+        },
+      );
+
+      final responseList = response as List;
+      return responseList
+          .map((row) {
+            try {
+              return AttendanceRecord.fromMap(row as Map<String, dynamic>);
+            } catch (e) {
+              debugPrint('Error parsing attendance record: $e');
+              return null;
+            }
+          })
+          .whereType<AttendanceRecord>()
+          .toList();
+    } on TimeoutException {
+      debugPrint('Timeout fetching class attendance');
+      rethrow;
+    } catch (e, stackTrace) {
+      debugPrint('Error fetching class attendance: $e');
+      debugPrint('Stack: $stackTrace');
+      // Re-throw network errors so UI can handle them
+      rethrow;
+    }
   }
 
   /// Get attendance statistics for a student
@@ -147,29 +176,50 @@ class AttendanceRepository {
     required DateTime startDate,
     required DateTime endDate,
   }) async {
-    final response = await _client.rpc(
-      'get_student_attendance_stats',
-      params: {
-        'p_student_id': studentId,
-        'p_start_date': startDate.toIso8601String().split('T')[0],
-        'p_end_date': endDate.toIso8601String().split('T')[0],
-      },
-    );
+    try {
+      final response = await _client
+          .rpc(
+            'get_student_attendance_stats',
+            params: {
+              'p_student_id': studentId,
+              'p_start_date': startDate.toIso8601String().split('T')[0],
+              'p_end_date': endDate.toIso8601String().split('T')[0],
+            },
+          )
+          .timeout(
+            const Duration(seconds: 15),
+            onTimeout: () {
+              throw TimeoutException(
+                'Failed to get attendance statistics: timeout after 15 seconds',
+                const Duration(seconds: 15),
+              );
+            },
+          );
 
-    if (response == null || (response is List && response.isEmpty)) {
-      return const AttendanceStats(
-        totalDays: 0,
-        presentDays: 0,
-        absentDays: 0,
-        lateDays: 0,
-        excusedDays: 0,
-        halfDayDays: 0,
-        attendancePercentage: 0.0,
+      if (response == null || (response is List && response.isEmpty)) {
+        return const AttendanceStats(
+          totalDays: 0,
+          presentDays: 0,
+          absentDays: 0,
+          lateDays: 0,
+          excusedDays: 0,
+          halfDayDays: 0,
+          attendancePercentage: 0.0,
+        );
+      }
+
+      final responseList = response as List;
+      return AttendanceStats.fromMap(
+        responseList.first as Map<String, dynamic>,
       );
+    } on TimeoutException {
+      rethrow;
+    } catch (e, stackTrace) {
+      debugPrint('Error getting student attendance stats: $e');
+      debugPrint('Stack: $stackTrace');
+      // Re-throw network errors so UI can handle them
+      rethrow;
     }
-
-    final responseList = response as List;
-    return AttendanceStats.fromMap(responseList.first as Map<String, dynamic>);
   }
 
   /// Get attendance summary for a class/section on a date
@@ -179,17 +229,55 @@ class AttendanceRepository {
     int? sectionId,
     required DateTime attendanceDate,
   }) async {
-    final response = await _client.rpc(
-      'get_class_attendance_summary',
-      params: {
-        'p_school_id': schoolId,
-        'p_class_id': classId,
-        'p_section_id': sectionId,
-        'p_attendance_date': attendanceDate.toIso8601String().split('T')[0],
-      },
-    );
+    try {
+      final response = await _client
+          .rpc(
+            'get_class_attendance_summary',
+            params: {
+              'p_school_id': schoolId,
+              'p_class_id': classId,
+              'p_section_id': sectionId,
+              'p_attendance_date': attendanceDate.toIso8601String().split(
+                'T',
+              )[0],
+            },
+          )
+          .timeout(
+            const Duration(seconds: 10),
+            onTimeout: () {
+              throw TimeoutException(
+                'Failed to get attendance summary: timeout after 10 seconds',
+              );
+            },
+          );
 
-    if (response == null || (response is List && response.isEmpty)) {
+      if (response == null || (response is List && response.isEmpty)) {
+        return const AttendanceSummary(
+          totalStudents: 0,
+          presentCount: 0,
+          absentCount: 0,
+          lateCount: 0,
+          excusedCount: 0,
+          halfDayCount: 0,
+          markedCount: 0,
+        );
+      }
+
+      final responseList = response as List;
+      return AttendanceSummary.fromMap(
+        responseList.first as Map<String, dynamic>,
+      );
+    } catch (e) {
+      debugPrint('Error getting class attendance summary: $e');
+      // If it's a network error, rethrow so UI can show a warning/error.
+      final msg = e.toString().toLowerCase();
+      if (msg.contains('networkerror') ||
+          msg.contains('clientexception') ||
+          msg.contains('network error')) {
+        rethrow;
+      }
+
+      // Otherwise, return empty summary (non-critical).
       return const AttendanceSummary(
         totalStudents: 0,
         presentCount: 0,
@@ -200,11 +288,6 @@ class AttendanceRepository {
         markedCount: 0,
       );
     }
-
-    final responseList = response as List;
-    return AttendanceSummary.fromMap(
-      responseList.first as Map<String, dynamic>,
-    );
   }
 
   /// Fetch students for a class/section (for marking attendance)
@@ -213,23 +296,73 @@ class AttendanceRepository {
     required int classId,
     int? sectionId,
   }) async {
-    dynamic query = _client
-        .from('students')
-        .select()
-        .eq('school_id', schoolId)
-        .eq('class_id', classId)
-        .eq('status', 'active');
+    debugPrint(
+      'AttendanceRepository: Fetching students - schoolId: $schoolId, classId: $classId, sectionId: $sectionId',
+    );
 
-    if (sectionId != null) {
-      query = query.eq('section_id', sectionId);
+    try {
+      dynamic query = _client
+          .from('students')
+          .select()
+          .eq('school_id', schoolId)
+          .eq('class_id', classId)
+          .eq('status', 'active');
+
+      if (sectionId != null) {
+        query = query.eq('section_id', sectionId);
+      }
+      query = query.order('admission_no');
+
+      debugPrint('AttendanceRepository: Executing query...');
+      final response = await query.timeout(
+        const Duration(seconds: 15), // Increased timeout for web
+        onTimeout: () {
+          debugPrint('AttendanceRepository: Query timeout');
+          throw TimeoutException(
+            'Failed to fetch students: timeout after 15 seconds',
+            const Duration(seconds: 15),
+          );
+        },
+      );
+
+      debugPrint('AttendanceRepository: Query completed, parsing response...');
+      final responseList = response as List;
+      final students = responseList
+          .map((row) {
+            try {
+              return Student.fromMap(row as Map<String, dynamic>);
+            } catch (e) {
+              // Skip invalid student records
+              debugPrint('Error parsing student record: $e');
+              return null;
+            }
+          })
+          .whereType<Student>()
+          .toList();
+      debugPrint('AttendanceRepository: Parsed ${students.length} students');
+      return students;
+    } on TimeoutException catch (e) {
+      debugPrint('AttendanceRepository: Timeout - $e');
+      rethrow;
+    } catch (e, stackTrace) {
+      // Log error and rethrow to let provider handle it
+      debugPrint('AttendanceRepository: Error type: ${e.runtimeType}');
+      debugPrint('AttendanceRepository: Error - $e');
+      debugPrint('AttendanceRepository: Stack - $stackTrace');
+
+      // Check if it's a network error
+      final errorString = e.toString().toLowerCase();
+      if (errorString.contains('networkerror') ||
+          errorString.contains('clientexception') ||
+          errorString.contains('network error')) {
+        throw Exception(
+          'Network error: Unable to connect to the server. Please check your internet connection and try again.',
+        );
+      }
+
+      // Re-throw original error
+      rethrow;
     }
-    query = query.order('admission_no');
-
-    final response = await query;
-    final responseList = response as List;
-    return responseList
-        .map((row) => Student.fromMap(row as Map<String, dynamic>))
-        .toList();
   }
 
   /// Update attendance record

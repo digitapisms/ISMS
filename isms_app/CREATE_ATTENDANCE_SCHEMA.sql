@@ -417,7 +417,11 @@ begin
       v_record->>'status',
       p_marked_by,
       v_record->>'notes',
-      (v_record->>'period_number')::int
+      case 
+        when v_record->>'period_number' is null or v_record->>'period_number' = '' 
+        then null 
+        else (v_record->>'period_number')::int 
+      end
     )
     on conflict (student_id, attendance_date, period_number)
     do update set

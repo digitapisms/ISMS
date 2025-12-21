@@ -5,7 +5,7 @@ import '../data/backup_repository.dart';
 
 final backupRepositoryProvider = Provider<BackupRepository>((ref) {
   final repo = BackupRepository();
-  final school = ref.watch(currentSchoolProvider);
+  final school = ref.read(currentSchoolProvider);
   repo.setSchoolId(school?.id);
   return repo;
 });

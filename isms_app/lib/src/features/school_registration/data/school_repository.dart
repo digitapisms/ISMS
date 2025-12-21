@@ -1,4 +1,3 @@
-
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -319,10 +318,28 @@ class SchoolRepository {
 
   /// Get school by code (for user registration)
   Future<School?> getSchoolByCode(String code) async {
+    final normalized = code.trim().toUpperCase();
+    if (normalized.isEmpty) return null;
+
+    // IMPORTANT: During signup the user is typically not authenticated, so RLS
+    // may block direct SELECT on `schools`. Use a SECURITY DEFINER RPC that
+    // safely returns the matching active school by code.
+    try {
+      final result = await _client.rpc(
+        'get_school_by_code_public',
+        params: {'p_school_code': normalized},
+      );
+      if (result is Map) {
+        return School.fromMap(Map<String, dynamic>.from(result));
+      }
+    } catch (_) {
+      // Fallback to direct query (works for authenticated/admin contexts)
+    }
+
     final response = await _client
         .from('schools')
         .select()
-        .eq('school_code', code.toUpperCase())
+        .eq('school_code', normalized)
         .eq('status', 'active') // Only allow active schools
         .maybeSingle();
 
@@ -446,7 +463,7 @@ class SchoolRepository {
           .update({'status': status})
           .eq('id', schoolId)
           .select();
-      
+
       if (response.isEmpty) {
         throw Exception('No school found with id: $schoolId');
       }
@@ -474,10 +491,9 @@ class SchoolRepository {
   Future<SchoolAnalytics> getSchoolAnalytics(String schoolId) async {
     // Try RPC first for better performance
     try {
-      final result = await _client.rpc(
-        'get_school_metrics',
-        params: {'p_school_id': schoolId},
-      );
+      final result = await _client
+          .rpc('get_school_metrics', params: {'p_school_id': schoolId})
+          .timeout(const Duration(seconds: 5));
       if (result is Map) {
         final map = Map<String, dynamic>.from(result);
         return SchoolAnalytics(
@@ -489,8 +505,9 @@ class SchoolRepository {
           lastStudentCreatedAt: _parseDateTime(map['last_student_created_at']),
         );
       }
-    } catch (_) {
-      // Fall back to manual counts
+    } catch (e) {
+      // Fall back to manual counts - log error in debug mode
+      debugPrint('RPC get_school_metrics failed, using fallback: $e');
     }
 
     final totalStudents = await _countTable('students', schoolId);

@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/errors/error_handler.dart';
+import '../../../core/errors/provider_helpers.dart';
 import '../../school_registration/application/school_providers.dart';
 import '../data/library_repository.dart';
 import '../domain/book.dart';
@@ -31,10 +33,15 @@ final libraryRepositoryProvider = Provider<LibraryRepository>((ref) {
 // ============================================================
 
 final bookCategoriesProvider = FutureProvider<List<BookCategory>>((ref) async {
-  final school = ref.watch(currentSchoolProvider);
-  if (school == null) return [];
-  final repo = ref.read(libraryRepositoryProvider);
-  return repo.fetchCategories();
+  return safeProviderOperation<List<BookCategory>>(
+    ref: ref,
+    operation: (schoolId) async {
+      final repo = ref.read(libraryRepositoryProvider);
+      return await repo.fetchCategories().timeout(const Duration(seconds: 10));
+    },
+    onError: () => <BookCategory>[],
+    context: 'BookCategoriesProvider',
+  );
 });
 
 // ============================================================
@@ -42,35 +49,70 @@ final bookCategoriesProvider = FutureProvider<List<BookCategory>>((ref) async {
 // ============================================================
 
 final booksProvider = FutureProvider<List<Book>>((ref) async {
-  final school = ref.watch(currentSchoolProvider);
-  if (school == null) return [];
-  final repo = ref.read(libraryRepositoryProvider);
-  return repo.fetchBooks(isActive: true);
+  return safeProviderOperation<List<Book>>(
+    ref: ref,
+    operation: (schoolId) async {
+      final repo = ref.read(libraryRepositoryProvider);
+      return await repo
+          .fetchBooks(isActive: true)
+          .timeout(const Duration(seconds: 10));
+    },
+    onError: () => <Book>[],
+    context: 'BooksProvider',
+  );
 });
 
 final booksByCategoryProvider = FutureProvider.family<List<Book>, int?>((
   ref,
   categoryId,
 ) async {
-  final school = ref.watch(currentSchoolProvider);
-  if (school == null) return [];
-  final repo = ref.read(libraryRepositoryProvider);
-  return repo.fetchBooks(categoryId: categoryId, isActive: true);
+  return safeProviderOperation<List<Book>>(
+    ref: ref,
+    operation: (schoolId) async {
+      final repo = ref.read(libraryRepositoryProvider);
+      return await repo
+          .fetchBooks(categoryId: categoryId, isActive: true)
+          .timeout(const Duration(seconds: 10));
+    },
+    onError: () => <Book>[],
+    context: 'BooksByCategoryProvider',
+  );
 });
 
 final bookProvider = FutureProvider.family<Book?, int>((ref, bookId) async {
-  final repo = ref.read(libraryRepositoryProvider);
-  return repo.getBook(bookId);
+  final correlationId = ErrorHandler.generateCorrelationId();
+
+  try {
+    final repo = ref.read(libraryRepositoryProvider);
+    return await repo
+        .getBook(bookId)
+        .timeout(const Duration(seconds: 10), onTimeout: () => null);
+  } catch (e) {
+    final error = ErrorHandler.handleException(
+      e,
+      correlationId: correlationId,
+      context: 'BookProvider',
+    );
+    ErrorHandler.logError(error);
+    return null;
+  }
 });
 
 final searchBooksProvider = FutureProvider.family<List<Book>, String>((
   ref,
   query,
 ) async {
-  final school = ref.watch(currentSchoolProvider);
-  if (school == null) return [];
-  final repo = ref.read(libraryRepositoryProvider);
-  return repo.fetchBooks(searchQuery: query, isActive: true);
+  return safeProviderOperation<List<Book>>(
+    ref: ref,
+    operation: (schoolId) async {
+      final repo = ref.read(libraryRepositoryProvider);
+      return await repo
+          .fetchBooks(searchQuery: query, isActive: true)
+          .timeout(const Duration(seconds: 10));
+    },
+    onError: () => <Book>[],
+    context: 'SearchBooksProvider',
+  );
 });
 
 // ============================================================
@@ -81,20 +123,34 @@ final bookCopiesProvider = FutureProvider.family<List<BookCopy>, int?>((
   ref,
   bookId,
 ) async {
-  final school = ref.watch(currentSchoolProvider);
-  if (school == null) return [];
-  final repo = ref.read(libraryRepositoryProvider);
-  return repo.fetchBookCopies(bookId: bookId);
+  return safeProviderOperation<List<BookCopy>>(
+    ref: ref,
+    operation: (schoolId) async {
+      final repo = ref.read(libraryRepositoryProvider);
+      return await repo
+          .fetchBookCopies(bookId: bookId)
+          .timeout(const Duration(seconds: 10));
+    },
+    onError: () => <BookCopy>[],
+    context: 'BookCopiesProvider',
+  );
 });
 
 final availableBookCopiesProvider = FutureProvider.family<List<BookCopy>, int>((
   ref,
   bookId,
 ) async {
-  final school = ref.watch(currentSchoolProvider);
-  if (school == null) return [];
-  final repo = ref.read(libraryRepositoryProvider);
-  return repo.fetchBookCopies(bookId: bookId, status: BookCopyStatus.available);
+  return safeProviderOperation<List<BookCopy>>(
+    ref: ref,
+    operation: (schoolId) async {
+      final repo = ref.read(libraryRepositoryProvider);
+      return await repo
+          .fetchBookCopies(bookId: bookId, status: BookCopyStatus.available)
+          .timeout(const Duration(seconds: 10));
+    },
+    onError: () => <BookCopy>[],
+    context: 'AvailableBookCopiesProvider',
+  );
 });
 
 // ============================================================
@@ -102,37 +158,64 @@ final availableBookCopiesProvider = FutureProvider.family<List<BookCopy>, int>((
 // ============================================================
 
 final bookIssuesProvider = FutureProvider<List<BookIssue>>((ref) async {
-  final school = ref.watch(currentSchoolProvider);
-  if (school == null) return [];
-  final repo = ref.read(libraryRepositoryProvider);
-  return repo.fetchIssues();
+  return safeProviderOperation<List<BookIssue>>(
+    ref: ref,
+    operation: (schoolId) async {
+      final repo = ref.read(libraryRepositoryProvider);
+      return await repo.fetchIssues().timeout(const Duration(seconds: 10));
+    },
+    onError: () => <BookIssue>[],
+    context: 'BookIssuesProvider',
+  );
 });
 
 final issuesByStudentProvider = FutureProvider.family<List<BookIssue>, String>((
   ref,
   studentId,
 ) async {
-  final school = ref.watch(currentSchoolProvider);
-  if (school == null) return [];
-  final repo = ref.read(libraryRepositoryProvider);
-  return repo.fetchIssues(studentId: studentId);
+  return safeProviderOperation<List<BookIssue>>(
+    ref: ref,
+    operation: (schoolId) async {
+      final repo = ref.read(libraryRepositoryProvider);
+      return await repo
+          .fetchIssues(studentId: studentId)
+          .timeout(const Duration(seconds: 10));
+    },
+    onError: () => <BookIssue>[],
+    context: 'IssuesByStudentProvider',
+  );
 });
 
 final overdueIssuesProvider = FutureProvider<List<BookIssue>>((ref) async {
-  final school = ref.watch(currentSchoolProvider);
-  if (school == null) return [];
-  final repo = ref.read(libraryRepositoryProvider);
-  return repo.fetchIssues(overdue: true);
+  return safeProviderOperation<List<BookIssue>>(
+    ref: ref,
+    operation: (schoolId) async {
+      final repo = ref.read(libraryRepositoryProvider);
+      return await repo
+          .fetchIssues(overdue: true)
+          .timeout(const Duration(seconds: 10));
+    },
+    onError: () => <BookIssue>[],
+    context: 'OverdueIssuesProvider',
+  );
 });
 
 final issueProvider = FutureProvider.family<BookIssue?, String>((
   ref,
   issueId,
 ) async {
-  final issues = await ref.read(bookIssuesProvider.future);
+  final correlationId = ErrorHandler.generateCorrelationId();
+
   try {
+    final issues = await ref.read(bookIssuesProvider.future);
     return issues.firstWhere((i) => i.id == issueId);
   } catch (e) {
+    final error = ErrorHandler.handleException(
+      e,
+      correlationId: correlationId,
+      context: 'IssueProvider',
+    );
+    ErrorHandler.logError(error);
     return null;
   }
 });
@@ -142,10 +225,15 @@ final issueProvider = FutureProvider.family<BookIssue?, String>((
 // ============================================================
 
 final bookReturnsProvider = FutureProvider<List<BookReturn>>((ref) async {
-  final school = ref.watch(currentSchoolProvider);
-  if (school == null) return [];
-  final repo = ref.read(libraryRepositoryProvider);
-  return repo.fetchReturns();
+  return safeProviderOperation<List<BookReturn>>(
+    ref: ref,
+    operation: (schoolId) async {
+      final repo = ref.read(libraryRepositoryProvider);
+      return await repo.fetchReturns().timeout(const Duration(seconds: 10));
+    },
+    onError: () => <BookReturn>[],
+    context: 'BookReturnsProvider',
+  );
 });
 
 // ============================================================
@@ -155,10 +243,17 @@ final bookReturnsProvider = FutureProvider<List<BookReturn>>((ref) async {
 final bookReservationsProvider = FutureProvider<List<BookReservation>>((
   ref,
 ) async {
-  final school = ref.watch(currentSchoolProvider);
-  if (school == null) return [];
-  final repo = ref.read(libraryRepositoryProvider);
-  return repo.fetchReservations();
+  return safeProviderOperation<List<BookReservation>>(
+    ref: ref,
+    operation: (schoolId) async {
+      final repo = ref.read(libraryRepositoryProvider);
+      return await repo.fetchReservations().timeout(
+        const Duration(seconds: 10),
+      );
+    },
+    onError: () => <BookReservation>[],
+    context: 'BookReservationsProvider',
+  );
 });
 
 final reservationsByStudentProvider =
@@ -166,10 +261,17 @@ final reservationsByStudentProvider =
       ref,
       studentId,
     ) async {
-      final school = ref.watch(currentSchoolProvider);
-      if (school == null) return [];
-      final repo = ref.read(libraryRepositoryProvider);
-      return repo.fetchReservations(studentId: studentId);
+      return safeProviderOperation<List<BookReservation>>(
+        ref: ref,
+        operation: (schoolId) async {
+          final repo = ref.read(libraryRepositoryProvider);
+          return await repo
+              .fetchReservations(studentId: studentId)
+              .timeout(const Duration(seconds: 10));
+        },
+        onError: () => <BookReservation>[],
+        context: 'ReservationsByStudentProvider',
+      );
     });
 
 // ============================================================
@@ -177,27 +279,46 @@ final reservationsByStudentProvider =
 // ============================================================
 
 final bookFinesProvider = FutureProvider<List<BookFine>>((ref) async {
-  final school = ref.watch(currentSchoolProvider);
-  if (school == null) return [];
-  final repo = ref.read(libraryRepositoryProvider);
-  return repo.fetchFines();
+  return safeProviderOperation<List<BookFine>>(
+    ref: ref,
+    operation: (schoolId) async {
+      final repo = ref.read(libraryRepositoryProvider);
+      return await repo.fetchFines().timeout(const Duration(seconds: 10));
+    },
+    onError: () => <BookFine>[],
+    context: 'BookFinesProvider',
+  );
 });
 
 final finesByStudentProvider = FutureProvider.family<List<BookFine>, String>((
   ref,
   studentId,
 ) async {
-  final school = ref.watch(currentSchoolProvider);
-  if (school == null) return [];
-  final repo = ref.read(libraryRepositoryProvider);
-  return repo.fetchFines(studentId: studentId);
+  return safeProviderOperation<List<BookFine>>(
+    ref: ref,
+    operation: (schoolId) async {
+      final repo = ref.read(libraryRepositoryProvider);
+      return await repo
+          .fetchFines(studentId: studentId)
+          .timeout(const Duration(seconds: 10));
+    },
+    onError: () => <BookFine>[],
+    context: 'FinesByStudentProvider',
+  );
 });
 
 final pendingFinesProvider = FutureProvider<List<BookFine>>((ref) async {
-  final school = ref.watch(currentSchoolProvider);
-  if (school == null) return [];
-  final repo = ref.read(libraryRepositoryProvider);
-  return repo.fetchFines(status: FineStatus.pending);
+  return safeProviderOperation<List<BookFine>>(
+    ref: ref,
+    operation: (schoolId) async {
+      final repo = ref.read(libraryRepositoryProvider);
+      return await repo
+          .fetchFines(status: FineStatus.pending)
+          .timeout(const Duration(seconds: 10));
+    },
+    onError: () => <BookFine>[],
+    context: 'PendingFinesProvider',
+  );
 });
 
 // ============================================================
@@ -207,18 +328,32 @@ final pendingFinesProvider = FutureProvider<List<BookFine>>((ref) async {
 final digitalResourcesProvider = FutureProvider<List<DigitalResource>>((
   ref,
 ) async {
-  final school = ref.watch(currentSchoolProvider);
-  if (school == null) return [];
-  final repo = ref.read(libraryRepositoryProvider);
-  return repo.fetchDigitalResources(isActive: true);
+  return safeProviderOperation<List<DigitalResource>>(
+    ref: ref,
+    operation: (schoolId) async {
+      final repo = ref.read(libraryRepositoryProvider);
+      return await repo
+          .fetchDigitalResources(isActive: true)
+          .timeout(const Duration(seconds: 10));
+    },
+    onError: () => <DigitalResource>[],
+    context: 'DigitalResourcesProvider',
+  );
 });
 
 final digitalResourcesByBookProvider =
     FutureProvider.family<List<DigitalResource>, int>((ref, bookId) async {
-      final school = ref.watch(currentSchoolProvider);
-      if (school == null) return [];
-      final repo = ref.read(libraryRepositoryProvider);
-      return repo.fetchDigitalResources(bookId: bookId, isActive: true);
+      return safeProviderOperation<List<DigitalResource>>(
+        ref: ref,
+        operation: (schoolId) async {
+          final repo = ref.read(libraryRepositoryProvider);
+          return await repo
+              .fetchDigitalResources(bookId: bookId, isActive: true)
+              .timeout(const Duration(seconds: 10));
+        },
+        onError: () => <DigitalResource>[],
+        context: 'DigitalResourcesByBookProvider',
+      );
     });
 
 // ============================================================
@@ -230,10 +365,17 @@ final digitalResourceAnnotationsProvider =
       ref,
       resourceId,
     ) async {
-      final school = ref.watch(currentSchoolProvider);
-      if (school == null) return [];
-      final repo = ref.read(libraryRepositoryProvider);
-      return repo.fetchAnnotations(resourceId: resourceId);
+      return safeProviderOperation<List<DigitalResourceAnnotation>>(
+        ref: ref,
+        operation: (schoolId) async {
+          final repo = ref.read(libraryRepositoryProvider);
+          return await repo
+              .fetchAnnotations(resourceId: resourceId)
+              .timeout(const Duration(seconds: 10));
+        },
+        onError: () => <DigitalResourceAnnotation>[],
+        context: 'DigitalResourceAnnotationsProvider',
+      );
     });
 
 final userDigitalResourceAnnotationsProvider =
@@ -241,12 +383,19 @@ final userDigitalResourceAnnotationsProvider =
       ref,
       resourceId,
     ) async {
-      final school = ref.watch(currentSchoolProvider);
-      if (school == null) return [];
-      final repo = ref.read(libraryRepositoryProvider);
-      return repo.fetchAnnotations(
-        resourceId: resourceId,
-        userId: ref.read(libraryRepositoryProvider).schoolId,
+      return safeProviderOperation<List<DigitalResourceAnnotation>>(
+        ref: ref,
+        operation: (schoolId) async {
+          final repo = ref.read(libraryRepositoryProvider);
+          return await repo
+              .fetchAnnotations(
+                resourceId: resourceId,
+                userId: schoolId, // Use schoolId as userId fallback
+              )
+              .timeout(const Duration(seconds: 10));
+        },
+        onError: () => <DigitalResourceAnnotation>[],
+        context: 'UserDigitalResourceAnnotationsProvider',
       );
     });
 
@@ -255,10 +404,17 @@ final publicDigitalResourceAnnotationsProvider =
       ref,
       resourceId,
     ) async {
-      final school = ref.watch(currentSchoolProvider);
-      if (school == null) return [];
-      final repo = ref.read(libraryRepositoryProvider);
-      return repo.fetchAnnotations(resourceId: resourceId, isPublic: true);
+      return safeProviderOperation<List<DigitalResourceAnnotation>>(
+        ref: ref,
+        operation: (schoolId) async {
+          final repo = ref.read(libraryRepositoryProvider);
+          return await repo
+              .fetchAnnotations(resourceId: resourceId, isPublic: true)
+              .timeout(const Duration(seconds: 10));
+        },
+        onError: () => <DigitalResourceAnnotation>[],
+        context: 'PublicDigitalResourceAnnotationsProvider',
+      );
     });
 
 // ============================================================
@@ -270,18 +426,40 @@ final annotationRepliesProvider =
       ref,
       annotationId,
     ) async {
-      final school = ref.watch(currentSchoolProvider);
-      if (school == null) return [];
-      final repo = ref.read(libraryRepositoryProvider);
-      return repo.fetchAnnotationReplies(annotationId: annotationId);
+      return safeProviderOperation<List<AnnotationReply>>(
+        ref: ref,
+        operation: (schoolId) async {
+          final repo = ref.read(libraryRepositoryProvider);
+          return await repo
+              .fetchAnnotationReplies(annotationId: annotationId)
+              .timeout(const Duration(seconds: 10));
+        },
+        onError: () => <AnnotationReply>[],
+        context: 'AnnotationRepliesProvider',
+      );
     });
 
 final annotationReplyProvider = FutureProvider.family<AnnotationReply?, String>(
   (ref, replyId) async {
-    final school = ref.watch(currentSchoolProvider);
-    if (school == null) return null;
-    final repo = ref.read(libraryRepositoryProvider);
-    return repo.getAnnotationReply(replyId);
+    final correlationId = ErrorHandler.generateCorrelationId();
+
+    try {
+      final schoolId = await getSchoolIdSafely(ref);
+      if (schoolId == null) return null;
+
+      final repo = ref.read(libraryRepositoryProvider);
+      return await repo
+          .getAnnotationReply(replyId)
+          .timeout(const Duration(seconds: 10), onTimeout: () => null);
+    } catch (e) {
+      final error = ErrorHandler.handleException(
+        e,
+        correlationId: correlationId,
+        context: 'AnnotationReplyProvider',
+      );
+      ErrorHandler.logError(error);
+      return null;
+    }
   },
 );
 
@@ -289,18 +467,48 @@ final annotationReplyLikesCountProvider = FutureProvider.family<int, String>((
   ref,
   replyId,
 ) async {
-  final school = ref.watch(currentSchoolProvider);
-  if (school == null) return 0;
-  final repo = ref.read(libraryRepositoryProvider);
-  return repo.getAnnotationReplyLikesCount(replyId);
+  final correlationId = ErrorHandler.generateCorrelationId();
+
+  try {
+    final schoolId = await getSchoolIdSafely(ref);
+    if (schoolId == null) return 0;
+
+    final repo = ref.read(libraryRepositoryProvider);
+    return await repo
+        .getAnnotationReplyLikesCount(replyId)
+        .timeout(const Duration(seconds: 10), onTimeout: () => 0);
+  } catch (e) {
+    final error = ErrorHandler.handleException(
+      e,
+      correlationId: correlationId,
+      context: 'AnnotationReplyLikesCountProvider',
+    );
+    ErrorHandler.logError(error);
+    return 0;
+  }
 });
 
 final hasUserLikedAnnotationReplyProvider = FutureProvider.family<bool, String>(
   (ref, replyId) async {
-    final school = ref.watch(currentSchoolProvider);
-    if (school == null) return false;
-    final repo = ref.read(libraryRepositoryProvider);
-    return repo.hasUserLikedAnnotationReply(replyId);
+    final correlationId = ErrorHandler.generateCorrelationId();
+
+    try {
+      final schoolId = await getSchoolIdSafely(ref);
+      if (schoolId == null) return false;
+
+      final repo = ref.read(libraryRepositoryProvider);
+      return await repo
+          .hasUserLikedAnnotationReply(replyId)
+          .timeout(const Duration(seconds: 10), onTimeout: () => false);
+    } catch (e) {
+      final error = ErrorHandler.handleException(
+        e,
+        correlationId: correlationId,
+        context: 'HasUserLikedAnnotationReplyProvider',
+      );
+      ErrorHandler.logError(error);
+      return false;
+    }
   },
 );
 
@@ -367,18 +575,40 @@ final digitalResourceProgressProvider =
       ref,
       resourceId,
     ) async {
-      final school = ref.watch(currentSchoolProvider);
-      if (school == null) return null;
-      final repo = ref.read(libraryRepositoryProvider);
-      return repo.getProgress(resourceId);
+      final correlationId = ErrorHandler.generateCorrelationId();
+
+      try {
+        final schoolId = await getSchoolIdSafely(ref);
+        if (schoolId == null) return null;
+
+        final repo = ref.read(libraryRepositoryProvider);
+        return await repo
+            .getProgress(resourceId)
+            .timeout(const Duration(seconds: 10), onTimeout: () => null);
+      } catch (e) {
+        final error = ErrorHandler.handleException(
+          e,
+          correlationId: correlationId,
+          context: 'DigitalResourceProgressProvider',
+        );
+        ErrorHandler.logError(error);
+        return null;
+      }
     });
 
 final userDigitalResourceProgressProvider =
     FutureProvider<List<DigitalResourceProgress>>((ref) async {
-      final school = ref.watch(currentSchoolProvider);
-      if (school == null) return [];
-      final repo = ref.read(libraryRepositoryProvider);
-      return repo.getUserProgress();
+      return safeProviderOperation<List<DigitalResourceProgress>>(
+        ref: ref,
+        operation: (schoolId) async {
+          final repo = ref.read(libraryRepositoryProvider);
+          return await repo.getUserProgress().timeout(
+            const Duration(seconds: 10),
+          );
+        },
+        onError: () => <DigitalResourceProgress>[],
+        context: 'UserDigitalResourceProgressProvider',
+      );
     });
 
 // ============================================================
@@ -387,10 +617,17 @@ final userDigitalResourceProgressProvider =
 
 final quizQuestionsProvider = FutureProvider.family<List<QuizQuestion>, String>(
   (ref, resourceId) async {
-    final school = ref.watch(currentSchoolProvider);
-    if (school == null) return [];
-    final repo = ref.read(libraryRepositoryProvider);
-    return repo.fetchQuizQuestions(resourceId: resourceId);
+    return safeProviderOperation<List<QuizQuestion>>(
+      ref: ref,
+      operation: (schoolId) async {
+        final repo = ref.read(libraryRepositoryProvider);
+        return await repo
+            .fetchQuizQuestions(resourceId: resourceId)
+            .timeout(const Duration(seconds: 10));
+      },
+      onError: () => <QuizQuestion>[],
+      context: 'QuizQuestionsProvider',
+    );
   },
 );
 
@@ -399,12 +636,19 @@ final quizQuestionsByPageProvider =
       ref,
       params,
     ) async {
-      final school = ref.watch(currentSchoolProvider);
-      if (school == null) return [];
-      final repo = ref.read(libraryRepositoryProvider);
-      return repo.fetchQuizQuestions(
-        resourceId: params['resourceId'] as String,
-        pageNumber: params['pageNumber'] as int?,
+      return safeProviderOperation<List<QuizQuestion>>(
+        ref: ref,
+        operation: (schoolId) async {
+          final repo = ref.read(libraryRepositoryProvider);
+          return await repo
+              .fetchQuizQuestions(
+                resourceId: params['resourceId'] as String,
+                pageNumber: params['pageNumber'] as int?,
+              )
+              .timeout(const Duration(seconds: 10));
+        },
+        onError: () => <QuizQuestion>[],
+        context: 'QuizQuestionsByPageProvider',
       );
     });
 
@@ -412,56 +656,100 @@ final quizQuestionProvider = FutureProvider.family<QuizQuestion?, String>((
   ref,
   questionId,
 ) async {
-  final school = ref.watch(currentSchoolProvider);
-  if (school == null) return null;
-  final repo = ref.read(libraryRepositoryProvider);
-  return repo.getQuizQuestion(questionId);
+  final correlationId = ErrorHandler.generateCorrelationId();
+
+  try {
+    final schoolId = await getSchoolIdSafely(ref);
+    if (schoolId == null) return null;
+
+    final repo = ref.read(libraryRepositoryProvider);
+    return await repo
+        .getQuizQuestion(questionId)
+        .timeout(const Duration(seconds: 10), onTimeout: () => null);
+  } catch (e) {
+    final error = ErrorHandler.handleException(
+      e,
+      correlationId: correlationId,
+      context: 'QuizQuestionProvider',
+    );
+    ErrorHandler.logError(error);
+    return null;
+  }
 });
 
 final quizAttemptsProvider = FutureProvider.family<List<QuizAttempt>, String>((
   ref,
   resourceId,
 ) async {
-  final school = ref.watch(currentSchoolProvider);
-  if (school == null) return [];
-  final repo = ref.read(libraryRepositoryProvider);
-  return repo.getUserQuizAttempts(resourceId: resourceId);
+  return safeProviderOperation<List<QuizAttempt>>(
+    ref: ref,
+    operation: (schoolId) async {
+      final repo = ref.read(libraryRepositoryProvider);
+      return await repo
+          .getUserQuizAttempts(resourceId: resourceId)
+          .timeout(const Duration(seconds: 10));
+    },
+    onError: () => <QuizAttempt>[],
+    context: 'QuizAttemptsProvider',
+  );
 });
 
 final latestQuizAttemptProvider = FutureProvider.family<QuizAttempt?, String>((
   ref,
   resourceId,
 ) async {
-  final school = ref.watch(currentSchoolProvider);
-  if (school == null) return null;
-  final repo = ref.read(libraryRepositoryProvider);
-  return repo.getLatestQuizAttempt(resourceId);
+  final correlationId = ErrorHandler.generateCorrelationId();
+
+  try {
+    final schoolId = await getSchoolIdSafely(ref);
+    if (schoolId == null) return null;
+
+    final repo = ref.read(libraryRepositoryProvider);
+    return await repo
+        .getLatestQuizAttempt(resourceId)
+        .timeout(const Duration(seconds: 10), onTimeout: () => null);
+  } catch (e) {
+    final error = ErrorHandler.handleException(
+      e,
+      correlationId: correlationId,
+      context: 'LatestQuizAttemptProvider',
+    );
+    ErrorHandler.logError(error);
+    return null;
+  }
 });
 
 final activeQuizAttemptProvider = StateProvider<QuizAttempt?>((ref) => null);
 
 final quizResultsProvider = FutureProvider.family<Map<String, dynamic>, String>(
   (ref, resourceId) async {
-    final school = ref.watch(currentSchoolProvider);
-    if (school == null) return {};
-    final repo = ref.read(libraryRepositoryProvider);
+    return safeProviderOperation<Map<String, dynamic>>(
+      ref: ref,
+      operation: (schoolId) async {
+        final repo = ref.read(libraryRepositoryProvider);
 
-    final attempts = await repo.getUserQuizAttempts(resourceId: resourceId);
-    final latestAttempt = attempts.isNotEmpty ? attempts.first : null;
+        final attempts = await repo
+            .getUserQuizAttempts(resourceId: resourceId)
+            .timeout(const Duration(seconds: 10));
+        final latestAttempt = attempts.isNotEmpty ? attempts.first : null;
 
-    return {
-      'totalAttempts': attempts.length,
-      'latestScore': latestAttempt?.score,
-      'maxScore': latestAttempt?.maxScore,
-      'averageScore': attempts.isNotEmpty
-          ? attempts.map((a) => a.score).reduce((a, b) => a + b) /
-                attempts.length
-          : 0,
-      'bestScore': attempts.isNotEmpty
-          ? attempts.map((a) => a.score).reduce((a, b) => a > b ? a : b)
-          : 0,
-      'timeSpent': latestAttempt?.timeSpent ?? Duration.zero,
-      'completionRate': latestAttempt?.percentage ?? 0,
-    };
+        return {
+          'totalAttempts': attempts.length,
+          'latestScore': latestAttempt?.score,
+          'maxScore': latestAttempt?.maxScore,
+          'averageScore': attempts.isNotEmpty
+              ? attempts.map((a) => a.score).reduce((a, b) => a + b) /
+                    attempts.length
+              : 0,
+          'bestScore': attempts.isNotEmpty
+              ? attempts.map((a) => a.score).reduce((a, b) => a > b ? a : b)
+              : 0,
+          'timeSpent': latestAttempt?.timeSpent ?? Duration.zero,
+          'completionRate': latestAttempt?.percentage ?? 0,
+        };
+      },
+      onError: () => <String, dynamic>{},
+      context: 'QuizResultsProvider',
+    );
   },
 );

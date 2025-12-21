@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/errors/app_error.dart';
 import '../../authentication/domain/user_role.dart';
 import '../application/staff_providers.dart';
 import '../domain/staff_invite.dart';
@@ -663,9 +664,36 @@ class _InviteStaffDialogState extends ConsumerState<_InviteStaffDialog> {
       });
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Failed to create invite: ')));
+      
+      // Extract user-friendly error message
+      String errorMessage = 'Failed to create invite. Please try again.';
+      
+      // Check if it's an AppError with userMessage
+      if (e is AppError && e.userMessage != null && e.userMessage!.isNotEmpty) {
+        errorMessage = e.userMessage!;
+      } else {
+        // Try to extract meaningful message from exception string
+        final errorStr = e.toString();
+        // Remove "Exception: " prefix if present
+        if (errorStr.startsWith('Exception: ')) {
+          final msg = errorStr.substring(11);
+          // Use message if it's short and meaningful
+          if (msg.length < 150 && 
+              (msg.contains('already exists') ||
+               msg.contains('not found') ||
+               msg.contains('permission') ||
+               msg.contains('required'))) {
+            errorMessage = msg;
+          }
+        }
+      }
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(errorMessage),
+          duration: const Duration(seconds: 4),
+        ),
+      );
     } finally {
       if (mounted) {
         setState(() => _isSaving = false);

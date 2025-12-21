@@ -25,14 +25,12 @@ if ($LASTEXITCODE -ne 0) {
     exit 1
 }
 
-# Verify build exists
-if (-not (Test-Path "build\web\index.html")) {
-    Write-Host "❌ Build not found! Building now..." -ForegroundColor Yellow
-    flutter build web --release --no-tree-shake-icons
-    if ($LASTEXITCODE -ne 0) {
-        Write-Host "❌ Build failed!" -ForegroundColor Red
-        exit 1
-    }
+# Always rebuild so latest code is deployed
+Write-Host "`n🔨 Building Flutter web (release)..." -ForegroundColor Cyan
+flutter build web --release --no-tree-shake-icons
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "❌ Build failed!" -ForegroundColor Red
+    exit 1
 }
 
 # Deploy to Firebase Hosting

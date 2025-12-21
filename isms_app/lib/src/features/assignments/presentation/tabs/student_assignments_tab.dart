@@ -15,6 +15,9 @@ class StudentAssignmentsTab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final authUser = ref.watch(authStateProvider);
     final assignmentsAsync = ref.watch(assignmentsProvider);
+    final submissionsAsync = authUser == null
+        ? const AsyncValue.data(<AssignmentSubmission>[])
+        : ref.watch(submissionsByStudentProvider(authUser.id));
 
     return Padding(
       padding: const EdgeInsets.all(16),
@@ -60,37 +63,59 @@ class StudentAssignmentsTab extends ConsumerWidget {
                 // In production, this would filter by student's class_id
                 final studentAssignments = assignments;
 
-                return ListView.builder(
-                  itemCount: studentAssignments.length,
-                  itemBuilder: (context, index) {
-                    final assignment = studentAssignments[index];
-                    return FutureBuilder<AssignmentSubmission?>(
-                      future: _getSubmission(ref, assignment.id, authUser?.id),
-                      builder: (context, snapshot) {
-                        final submission = snapshot.data;
-                        return AssignmentListItem(
-                          assignment: assignment,
-                          submission: submission,
-                          onTap: () {
-                            if (authUser != null) {
-                              showDialog(
-                                context: context,
-                                builder: (_) => SubmissionDialog(
-                                  assignment: assignment,
-                                  submission: submission,
-                                  studentId: authUser.id,
-                                ),
-                              ).then((result) {
-                                if (result == true) {
-                                  ref.invalidate(assignmentsProvider);
-                                }
-                              });
-                            }
-                          },
-                        );
-                      },
-                    );
-                  },
+                final submissions =
+                    submissionsAsync.valueOrNull ??
+                    const <AssignmentSubmission>[];
+                final submissionByAssignmentId = <String, AssignmentSubmission>{
+                  for (final s in submissions) s.assignmentId: s,
+                };
+
+                return Column(
+                  children: [
+                    if (submissionsAsync.isLoading)
+                      const LinearProgressIndicator(minHeight: 2),
+                    if (submissionsAsync.hasError)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Text(
+                          'Submission status unavailable. You can still open assignments.',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ),
+                    Expanded(
+                      child: ListView.builder(
+                        itemCount: studentAssignments.length,
+                        itemBuilder: (context, index) {
+                          final assignment = studentAssignments[index];
+                          final submission =
+                              submissionByAssignmentId[assignment.id];
+                          return AssignmentListItem(
+                            assignment: assignment,
+                            submission: submission,
+                            onTap: () {
+                              if (authUser != null) {
+                                showDialog(
+                                  context: context,
+                                  builder: (_) => SubmissionDialog(
+                                    assignment: assignment,
+                                    submission: submission,
+                                    studentId: authUser.id,
+                                  ),
+                                ).then((result) {
+                                  if (result == true) {
+                                    ref.invalidate(assignmentsProvider);
+                                    ref.invalidate(
+                                      submissionsByStudentProvider(authUser.id),
+                                    );
+                                  }
+                                });
+                              }
+                            },
+                          );
+                        },
+                      ),
+                    ),
+                  ],
                 );
               },
               loading: () => const Center(child: CircularProgressIndicator()),
@@ -122,29 +147,5 @@ class StudentAssignmentsTab extends ConsumerWidget {
         ],
       ),
     );
-  }
-
-  Future<AssignmentSubmission?> _getSubmission(
-    WidgetRef ref,
-    String assignmentId,
-    String? studentId,
-  ) async {
-    if (studentId == null) return null;
-    try {
-      final submissions = await ref.read(
-        submissionsByStudentProvider(studentId).future,
-      );
-      return submissions.firstWhere(
-        (s) => s.assignmentId == assignmentId,
-        orElse: () => AssignmentSubmission(
-          id: '',
-          schoolId: '',
-          assignmentId: assignmentId,
-          studentId: studentId,
-        ),
-      );
-    } catch (e) {
-      return null;
-    }
   }
 }
