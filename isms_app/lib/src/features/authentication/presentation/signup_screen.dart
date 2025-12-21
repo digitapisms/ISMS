@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -31,6 +32,8 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   bool _validatingInvite = false;
   Map<String, dynamic>? _inviteDetails;
   String? _inviteError;
+  bool _hasInviteCode = false; // Track if invite code field has text
+  bool _hasEmail = false; // Track if email field has text
 
   // Roles that require school selection
   bool get _requiresSchoolSelection =>
@@ -51,8 +54,23 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     if (!_requiresStaffInvite) {
       _schoolCodeController.addListener(_validateSchoolCode);
     }
-    _emailController.addListener(_maybeRevalidateInvite);
-    _staffInviteCodeController.addListener(_validateStaffInvite);
+    // Track text changes for reactive UI updates
+    _emailController.addListener(() {
+      final hasText = _emailController.text.trim().isNotEmpty;
+      if (_hasEmail != hasText) {
+        setState(() {
+          _hasEmail = hasText;
+        });
+      }
+    });
+    _staffInviteCodeController.addListener(() {
+      final hasText = _staffInviteCodeController.text.trim().isNotEmpty;
+      if (_hasInviteCode != hasText) {
+        setState(() {
+          _hasInviteCode = hasText;
+        });
+      }
+    });
   }
 
   @override
@@ -142,6 +160,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
       setState(() {
         _inviteDetails = null;
         _inviteError = null;
+        _validatingInvite = false;
       });
       return;
     }
@@ -153,7 +172,11 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
 
     try {
       final repo = StaffRepository();
+      // Note: validateInvite doesn't need schoolId - it's a public function for signup
       final result = await repo.validateInvite(code: code, email: email);
+
+      if (!mounted) return;
+
       setState(() {
         _inviteDetails = result;
         if (result != null) {
@@ -162,21 +185,40 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
           // Clear school code error and any previous school code input since invite sets the school
           _schoolCodeError = null;
           _schoolCodeController.clear(); // Clear any school code input
+          _inviteError = null;
         } else {
           // Invite validation failed - clear school info
           _selectedSchoolId = null;
           _schoolName = null;
+          _inviteError = 'Invite not found or invalid for this email';
         }
-        _inviteError = result == null
-            ? 'Invite not found or invalid for this email'
-            : null;
         _validatingInvite = false;
       });
-    } catch (e) {
+    } catch (e, stackTrace) {
+      debugPrint('Error validating invite: $e');
+      debugPrint('Stack trace: $stackTrace');
+
+      if (!mounted) return;
+
       setState(() {
         _validatingInvite = false;
         _inviteDetails = null;
-        _inviteError = 'Unable to validate invite: $e';
+        _selectedSchoolId = null;
+        _schoolName = null;
+
+        // Extract user-friendly error message
+        String errorMsg = 'Unable to validate invite';
+        if (e is Exception) {
+          final errorStr = e.toString();
+          if (errorStr.contains('not found') || errorStr.contains('invalid')) {
+            errorMsg = 'Invite not found or invalid for this email';
+          } else if (errorStr.contains('expired')) {
+            errorMsg = 'This invite has expired';
+          } else if (errorStr.length < 100) {
+            errorMsg = errorStr.replaceFirst('Exception: ', '');
+          }
+        }
+        _inviteError = errorMsg;
       });
     }
   }
@@ -440,7 +482,33 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                           ),
                           textCapitalization: TextCapitalization.characters,
                           onChanged: (value) {
-                            // Trigger validation when text changes
+                            final hasCode = value.trim().isNotEmpty;
+                            final hasEmail = _emailController.text.trim().isNotEmpty;
+                            
+                            // Update state to trigger rebuild
+                            setState(() {
+                              _hasInviteCode = hasCode;
+                              _inviteDetails = null;
+                              _inviteError = null;
+                            });
+                            
+                            // Auto-validate if both fields are filled
+                            if (hasCode && hasEmail) {
+                              // Debounce validation
+                              Future.delayed(
+                                const Duration(milliseconds: 800),
+                                () {
+                                  if (mounted &&
+                                      _staffInviteCodeController.text.trim().isNotEmpty &&
+                                      _emailController.text.trim().isNotEmpty) {
+                                    _validateStaffInvite();
+                                  }
+                                },
+                              );
+                            }
+                          },
+                          onFieldSubmitted: (value) {
+                            // Validate when user presses enter/tab
                             if (value.trim().isNotEmpty &&
                                 _emailController.text.trim().isNotEmpty) {
                               _validateStaffInvite();
@@ -468,6 +536,21 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                               ),
                             ),
                           ),
+                        // Add a manual validate button
+                        if (_requiresStaffInvite &&
+                            _hasInviteCode &&
+                            _hasEmail &&
+                            _inviteDetails == null &&
+                            !_validatingInvite) ...[
+                          const SizedBox(height: 8),
+                          OutlinedButton.icon(
+                            onPressed: () {
+                              _validateStaffInvite();
+                            },
+                            icon: const Icon(Icons.verified_user, size: 18),
+                            label: const Text('Validate Invite Code'),
+                          ),
+                        ],
                         // Show school name when invite is validated (for invite-based signups)
                         if (_inviteDetails != null && _schoolName != null) ...[
                           const SizedBox(height: 8),
@@ -515,12 +598,41 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                         ),
                         keyboardType: TextInputType.emailAddress,
                         onChanged: (value) {
-                          // Revalidate invite when email changes (if invite code is already entered)
+                          // Clear previous validation when email changes
+                          if (_requiresStaffInvite) {
+                            final hasEmail = value.trim().isNotEmpty;
+                            final hasCode = _staffInviteCodeController.text.trim().isNotEmpty;
+                            
+                            // Update state to trigger rebuild
+                            setState(() {
+                              _hasEmail = hasEmail;
+                              _inviteDetails = null;
+                              _inviteError = null;
+                            });
+                            
+                            // Auto-validate if both fields are filled
+                            if (hasEmail && hasCode) {
+                              // Debounce validation
+                              Future.delayed(
+                                const Duration(milliseconds: 800),
+                                () {
+                                  if (mounted &&
+                                      _emailController.text.trim().isNotEmpty &&
+                                      _staffInviteCodeController.text.trim().isNotEmpty) {
+                                    _validateStaffInvite();
+                                  }
+                                },
+                              );
+                            }
+                          }
+                        },
+                        onFieldSubmitted: (value) {
+                          // Validate when user presses enter/tab
                           if (_requiresStaffInvite &&
+                              value.trim().isNotEmpty &&
                               _staffInviteCodeController.text
                                   .trim()
-                                  .isNotEmpty &&
-                              value.trim().isNotEmpty) {
+                                  .isNotEmpty) {
                             _validateStaffInvite();
                           }
                         },
