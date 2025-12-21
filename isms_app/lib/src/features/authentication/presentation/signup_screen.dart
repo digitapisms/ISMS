@@ -54,13 +54,17 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     if (!_requiresStaffInvite) {
       _schoolCodeController.addListener(_validateSchoolCode);
     }
-    // Track text changes for reactive UI updates
+    // Track text changes for reactive UI updates and trigger validation
     _emailController.addListener(() {
       final hasText = _emailController.text.trim().isNotEmpty;
       if (_hasEmail != hasText) {
         setState(() {
           _hasEmail = hasText;
         });
+      }
+      // Trigger validation if both fields have text
+      if (_requiresStaffInvite && hasText && _hasInviteCode) {
+        _maybeRevalidateInvite();
       }
     });
     _staffInviteCodeController.addListener(() {
@@ -69,6 +73,10 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
         setState(() {
           _hasInviteCode = hasText;
         });
+      }
+      // Trigger validation if both fields have text
+      if (_requiresStaffInvite && hasText && _hasEmail) {
+        _maybeRevalidateInvite();
       }
     });
   }
@@ -147,8 +155,19 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   }
 
   void _maybeRevalidateInvite() {
-    // This is called when email changes via listener
-    // Validation will also be triggered via onChanged in the TextFormField
+    // Trigger validation when both fields have text
+    if (_requiresStaffInvite &&
+        _staffInviteCodeController.text.trim().isNotEmpty &&
+        _emailController.text.trim().isNotEmpty) {
+      // Debounce to avoid too many calls
+      Future.delayed(const Duration(milliseconds: 800), () {
+        if (mounted &&
+            _staffInviteCodeController.text.trim().isNotEmpty &&
+            _emailController.text.trim().isNotEmpty) {
+          _validateStaffInvite();
+        }
+      });
+    }
   }
 
   Future<void> _validateStaffInvite() async {
@@ -246,11 +265,23 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     });
 
     try {
+      // Determine the role to use: if invite exists, use invite's role, otherwise use widget role
+      UserRole roleToUse = widget.role;
+      if (_requiresStaffInvite && _inviteDetails != null) {
+        // Get role from invite details - the invite specifies the exact role
+        final inviteRoleStr = _inviteDetails!['role'] as String?;
+        if (inviteRoleStr != null) {
+          // Map invite role string to UserRole
+          roleToUse = UserRoleX.fromDb(inviteRoleStr);
+          debugPrint('Using role from invite: $inviteRoleStr -> $roleToUse (widget role was: ${widget.role})');
+        }
+      }
+      
       final repo = ref.read(authRepositoryProvider);
       await repo.signUpWithEmail(
         email: _emailController.text.trim(),
         password: _passwordController.text,
-        role: widget.role,
+        role: roleToUse,
         schoolId: _selectedSchoolId,
       );
 
@@ -483,15 +514,17 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                           textCapitalization: TextCapitalization.characters,
                           onChanged: (value) {
                             final hasCode = value.trim().isNotEmpty;
-                            final hasEmail = _emailController.text.trim().isNotEmpty;
-                            
+                            final hasEmail = _emailController.text
+                                .trim()
+                                .isNotEmpty;
+
                             // Update state to trigger rebuild
                             setState(() {
                               _hasInviteCode = hasCode;
                               _inviteDetails = null;
                               _inviteError = null;
                             });
-                            
+
                             // Auto-validate if both fields are filled
                             if (hasCode && hasEmail) {
                               // Debounce validation
@@ -499,7 +532,9 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                                 const Duration(milliseconds: 800),
                                 () {
                                   if (mounted &&
-                                      _staffInviteCodeController.text.trim().isNotEmpty &&
+                                      _staffInviteCodeController.text
+                                          .trim()
+                                          .isNotEmpty &&
                                       _emailController.text.trim().isNotEmpty) {
                                     _validateStaffInvite();
                                   }
@@ -601,15 +636,17 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                           // Clear previous validation when email changes
                           if (_requiresStaffInvite) {
                             final hasEmail = value.trim().isNotEmpty;
-                            final hasCode = _staffInviteCodeController.text.trim().isNotEmpty;
-                            
+                            final hasCode = _staffInviteCodeController.text
+                                .trim()
+                                .isNotEmpty;
+
                             // Update state to trigger rebuild
                             setState(() {
                               _hasEmail = hasEmail;
                               _inviteDetails = null;
                               _inviteError = null;
                             });
-                            
+
                             // Auto-validate if both fields are filled
                             if (hasEmail && hasCode) {
                               // Debounce validation
@@ -618,7 +655,9 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                                 () {
                                   if (mounted &&
                                       _emailController.text.trim().isNotEmpty &&
-                                      _staffInviteCodeController.text.trim().isNotEmpty) {
+                                      _staffInviteCodeController.text
+                                          .trim()
+                                          .isNotEmpty) {
                                     _validateStaffInvite();
                                   }
                                 },

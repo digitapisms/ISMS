@@ -1,5 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/errors/app_error.dart';
+import '../../../core/errors/error_handler.dart';
 import '../../../core/network/supabase_client.dart';
 import '../domain/staff_profile.dart';
 import '../domain/staff_attendance.dart';
@@ -18,7 +20,10 @@ class StaffRepository {
   String _requireSchoolId() {
     final id = _schoolId;
     if (id == null) {
-      throw Exception('School context is required');
+      throw ValidationError(
+        message: 'School context is required',
+        userMessage: 'Please select a school before performing this action.',
+      );
     }
     return id;
   }

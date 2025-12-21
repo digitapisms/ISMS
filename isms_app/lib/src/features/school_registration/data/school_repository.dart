@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/errors/app_error.dart';
+import '../../../core/errors/error_handler.dart';
 import '../../../core/network/supabase_client.dart';
 import '../domain/global_analytics.dart';
 import '../domain/school.dart';
@@ -61,7 +63,12 @@ class SchoolRepository {
     );
 
     if (authResponse.user == null) {
-      throw Exception('Failed to create principal account');
+      throw AuthError(
+        message:
+            'Failed to create principal account during school registration',
+        userMessage:
+            'Unable to create principal account. Please try again or contact support.',
+      );
     }
 
     final principalAuthId = authResponse.user!.id;
@@ -93,9 +100,11 @@ class SchoolRepository {
       } catch (e) {
         // If sign in fails due to email not confirmed, continue anyway
         // The school insert will need a public policy to work
-        print(
-          'Note: User not yet confirmed. School creation will proceed if public policy exists.',
-        );
+        if (kDebugMode) {
+          debugPrint(
+            'Note: User not yet confirmed. School creation will proceed if public policy exists.',
+          );
+        }
       }
     }
 
@@ -125,7 +134,11 @@ class SchoolRepository {
 
     // Try to use the comprehensive RPC function first (bypasses all RLS)
     try {
-      print('Attempting to use complete_school_registration RPC function...');
+      if (kDebugMode) {
+        debugPrint(
+          'Attempting to use complete_school_registration RPC function...',
+        );
+      }
       final result = await _client.rpc(
         'complete_school_registration',
         params: {
@@ -150,19 +163,37 @@ class SchoolRepository {
         },
       );
 
-      print('RPC function returned: $result');
+      if (kDebugMode) {
+        debugPrint('RPC function returned: $result');
+      }
 
       // The function returns the complete school data as JSON
       if (result != null) {
         final schoolMap = Map<String, dynamic>.from(result as Map);
-        print('Successfully created school via RPC: ${schoolMap['id']}');
+        if (kDebugMode) {
+          debugPrint('Successfully created school via RPC: ${schoolMap['id']}');
+        }
         return School.fromMap(schoolMap);
       } else {
-        throw Exception('RPC function returned null');
+        throw DatabaseError(
+          message: 'complete_school_registration RPC returned null',
+          userMessage:
+              'School registration failed. Please try again or contact support.',
+        );
       }
     } catch (e) {
-      print('Complete registration RPC failed: $e');
-      print('Falling back to step-by-step approach...');
+      if (kDebugMode) {
+        debugPrint('Complete registration RPC failed: $e');
+        debugPrint('Falling back to step-by-step approach...');
+      }
+      // Convert to AppError if not already
+      final error = ErrorHandler.handleException(e);
+      if (error is! DatabaseError ||
+          !error.message.contains('relation') &&
+              !error.message.contains('function')) {
+        // Re-throw if it's not a schema issue (which we handle with fallback)
+        rethrow;
+      }
       // Fall through to step-by-step approach
     }
 
@@ -194,7 +225,10 @@ class SchoolRepository {
       schoolId = schoolIdResult as String;
     } catch (e) {
       // Last resort: direct insert (will fail if RLS blocks)
-      print('RPC function not available, using direct insert: $e');
+      if (kDebugMode) {
+        debugPrint('RPC function not available, using direct insert: $e');
+      }
+      final error = ErrorHandler.handleException(e);
       final schoolResponse = await _client
           .from('schools')
           .insert({
@@ -241,8 +275,11 @@ class SchoolRepository {
           .select()
           .maybeSingle();
       if (schoolResponse == null) {
-        throw Exception(
-          'School record was created but could not be fetched. Check RLS policies for "schools" table.',
+        throw DatabaseError(
+          message: 'School record was created but could not be fetched',
+          userMessage:
+              'School registration completed, but there was an issue retrieving the school details. Please try logging in.',
+          details: {'table': 'schools', 'hint': 'Check RLS policies'},
         );
       }
       schoolId = schoolResponse['id'] as String;
@@ -261,7 +298,12 @@ class SchoolRepository {
       );
     } catch (e) {
       // Fallback to direct insert
-      print('create_principal_user RPC not available, using direct insert: $e');
+      if (kDebugMode) {
+        debugPrint(
+          'create_principal_user RPC not available, using direct insert: $e',
+        );
+      }
+      final error = ErrorHandler.handleException(e);
       final userResponse = await _client
           .from('users')
           .insert({
@@ -274,8 +316,11 @@ class SchoolRepository {
           .maybeSingle();
 
       if (userResponse == null) {
-        throw Exception(
-          'Principal user record was created but could not be fetched. Check RLS policies for "users" table.',
+        throw DatabaseError(
+          message: 'Principal user record was created but could not be fetched',
+          userMessage:
+              'Principal account created, but there was an issue. Please try logging in with the principal email.',
+          details: {'table': 'users', 'hint': 'Check RLS policies'},
         );
       }
 
@@ -296,8 +341,14 @@ class SchoolRepository {
         .maybeSingle();
 
     if (schoolData == null) {
-      throw Exception(
-        'School created but could not be read back. Please verify that the principal has SELECT access on "schools".',
+      throw DatabaseError(
+        message: 'School created but could not be read back',
+        userMessage:
+            'School registration completed, but there was an issue. Please try logging in with the principal account.',
+        details: {
+          'table': 'schools',
+          'hint': 'Verify principal has SELECT access',
+        },
       );
     }
 
@@ -465,7 +516,11 @@ class SchoolRepository {
           .select();
 
       if (response.isEmpty) {
-        throw Exception('No school found with id: $schoolId');
+        throw DatabaseError.notFound(
+          resource: 'School',
+          correlationId: ErrorHandler.generateCorrelationId(),
+          details: {'school_id': schoolId},
+        );
       }
     } catch (e) {
       debugPrint('Error updating school status: $e');
