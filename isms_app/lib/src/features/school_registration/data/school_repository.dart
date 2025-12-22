@@ -519,7 +519,6 @@ class SchoolRepository {
         throw DatabaseError.notFound(
           resource: 'School',
           correlationId: ErrorHandler.generateCorrelationId(),
-          details: {'school_id': schoolId},
         );
       }
     } catch (e) {
