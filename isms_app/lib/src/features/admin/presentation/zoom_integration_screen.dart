@@ -29,6 +29,7 @@ class _ZoomIntegrationScreenState extends ConsumerState<ZoomIntegrationScreen> {
   final _clientSecretController = TextEditingController();
   bool _isLoading = false;
   bool _obscureSecret = true;
+  bool _controllersInitialized = false;
 
   @override
   void initState() {
@@ -81,7 +82,7 @@ class _ZoomIntegrationScreenState extends ConsumerState<ZoomIntegrationScreen> {
 
       await repo.updateZoomCredentials(credentials);
 
-      // Refresh the provider
+      // Refresh the provider (controllers already have the correct values from user input)
       ref.invalidate(zoomCredentialsProvider);
 
       if (mounted) {
@@ -218,6 +219,21 @@ class _ZoomIntegrationScreenState extends ConsumerState<ZoomIntegrationScreen> {
   Widget build(BuildContext context) {
     final credentialsAsync = ref.watch(zoomCredentialsProvider);
 
+    // Listen to provider changes and initialize controllers only once
+    ref.listen<AsyncValue<ZoomCredentials>>(zoomCredentialsProvider, (
+      previous,
+      next,
+    ) {
+      next.whenData((credentials) {
+        if (!_controllersInitialized && mounted) {
+          _accountIdController.text = credentials.accountId;
+          _clientIdController.text = credentials.clientId;
+          _clientSecretController.text = credentials.clientSecret;
+          _controllersInitialized = true;
+        }
+      });
+    });
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Zoom Integration Settings'),
@@ -228,13 +244,6 @@ class _ZoomIntegrationScreenState extends ConsumerState<ZoomIntegrationScreen> {
       ),
       body: credentialsAsync.when(
         data: (credentials) {
-          // Update controllers if data loaded
-          if (_accountIdController.text != credentials.accountId) {
-            _accountIdController.text = credentials.accountId;
-            _clientIdController.text = credentials.clientId;
-            _clientSecretController.text = credentials.clientSecret;
-          }
-
           return SingleChildScrollView(
             padding: const EdgeInsets.all(16),
             child: Form(
@@ -310,7 +319,9 @@ class _ZoomIntegrationScreenState extends ConsumerState<ZoomIntegrationScreen> {
 
                   // Credential Verification Info
                   Card(
-                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.surfaceContainerHighest,
                     child: Padding(
                       padding: const EdgeInsets.all(12),
                       child: Row(
@@ -503,7 +514,9 @@ class _ZoomIntegrationScreenState extends ConsumerState<ZoomIntegrationScreen> {
 
                   // Instructions Card
                   Card(
-                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.surfaceContainerHighest,
                     child: Padding(
                       padding: const EdgeInsets.all(16),
                       child: Column(
