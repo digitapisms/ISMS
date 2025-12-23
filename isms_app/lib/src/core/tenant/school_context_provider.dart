@@ -2,6 +2,7 @@
 ///
 /// This provider ensures school context is loaded synchronously
 /// when user logs in, preventing infinite loading issues.
+library;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';

@@ -2,6 +2,7 @@
 ///
 /// Ensures school context is loaded immediately when user logs in
 /// This prevents infinite loading by making school available synchronously
+library;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 

@@ -6,9 +6,6 @@ library;
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'app_error.dart';
-import 'error_handler.dart';
-import 'validation.dart';
 
 /// Helper function to get school ID from providers
 Future<String?> getSchoolIdFromProviders(

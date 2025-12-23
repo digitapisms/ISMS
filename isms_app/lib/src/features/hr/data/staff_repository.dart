@@ -1,7 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/errors/app_error.dart';
-import '../../../core/errors/error_handler.dart';
 import '../../../core/network/supabase_client.dart';
 import '../domain/staff_profile.dart';
 import '../domain/staff_attendance.dart';

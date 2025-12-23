@@ -344,7 +344,7 @@ class AttendanceFilter extends Equatable {
 }
 
 class ClassAttendanceFilter extends Equatable {
-  ClassAttendanceFilter({
+  const ClassAttendanceFilter({
     required this.classId,
     this.sectionId,
     required this.attendanceDate,
@@ -359,7 +359,7 @@ class ClassAttendanceFilter extends Equatable {
 }
 
 class StudentAttendanceFilter extends Equatable {
-  StudentAttendanceFilter({
+  const StudentAttendanceFilter({
     required this.studentId,
     this.startDate,
     this.endDate,
@@ -376,7 +376,7 @@ class StudentAttendanceFilter extends Equatable {
 }
 
 class StudentAttendanceStatsFilter extends Equatable {
-  StudentAttendanceStatsFilter({
+  const StudentAttendanceStatsFilter({
     required this.studentId,
     required this.startDate,
     required this.endDate,
@@ -391,7 +391,7 @@ class StudentAttendanceStatsFilter extends Equatable {
 }
 
 class ClassAttendanceSummaryFilter extends Equatable {
-  ClassAttendanceSummaryFilter({
+  const ClassAttendanceSummaryFilter({
     required this.classId,
     this.sectionId,
     required this.attendanceDate,
@@ -406,7 +406,7 @@ class ClassAttendanceSummaryFilter extends Equatable {
 }
 
 class AttendanceMarkingDataFilter extends Equatable {
-  AttendanceMarkingDataFilter({
+  const AttendanceMarkingDataFilter({
     required this.classId,
     this.sectionId,
     required this.attendanceDate,

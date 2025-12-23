@@ -75,9 +75,9 @@ Future<String?> getSchoolIdSafely(
         onTimeout: () => null,
       );
 
-      if (school != null && school.id != null) {
+      if (school != null) {
         schoolId = school.id;
-        final validationError = Validation.validateUuid(schoolId!, 'school_id');
+        final validationError = Validation.validateUuid(schoolId, 'school_id');
         if (validationError == null) {
           return schoolId;
         }

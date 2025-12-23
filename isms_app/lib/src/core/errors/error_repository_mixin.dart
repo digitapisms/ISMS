@@ -5,7 +5,6 @@ library;
 
 import '../errors/app_error.dart';
 import '../errors/error_handler.dart';
-import '../errors/validation.dart';
 
 mixin ErrorRepositoryMixin {
   /// Validate school ID

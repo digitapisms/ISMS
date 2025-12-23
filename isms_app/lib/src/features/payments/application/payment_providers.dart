@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/errors/app_error.dart';
 import '../../../core/errors/error_handler.dart';
 import '../../../core/errors/provider_helpers.dart';
-import '../../school_registration/application/school_providers.dart';
 import '../data/payments_repository.dart';
 import '../domain/cash_fee_receipt.dart';
 import '../domain/payment_account.dart';
