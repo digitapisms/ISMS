@@ -53,7 +53,7 @@ class SystemSettingsRepository {
           .update({
             'setting_value': value,
             'description': description,
-            'is_encrypted': isEncrypted,
+            // Avoid referencing is_encrypted to prevent errors if column missing
             'updated_by': userId,
             'updated_at': DateTime.now().toIso8601String(),
           })
@@ -66,7 +66,7 @@ class SystemSettingsRepository {
           'setting_key': key,
           'setting_value': value,
           'description': description,
-          'is_encrypted': isEncrypted,
+          // Avoid referencing is_encrypted to prevent errors if column missing
           'updated_by': userId,
           'updated_at': DateTime.now().toIso8601String(),
         });
