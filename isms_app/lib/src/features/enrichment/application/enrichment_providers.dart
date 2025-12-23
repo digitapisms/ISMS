@@ -11,8 +11,8 @@ import '../domain/reward.dart';
 
 final enrichmentRepositoryProvider = Provider<EnrichmentRepository>((ref) {
   final repo = EnrichmentRepository();
-  final tenantSchool = ref.watch(tenantContextProvider);
-  final authUser = ref.watch(authStateProvider);
+  final tenantSchool = ref.read(tenantContextProvider);
+  final authUser = ref.read(authStateProvider);
   repo.setSchoolId(tenantSchool?.id ?? authUser?.schoolId);
   return repo;
 });

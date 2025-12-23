@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/network/supabase_client.dart';
@@ -29,6 +30,8 @@ class _ZoomIntegrationScreenState extends ConsumerState<ZoomIntegrationScreen> {
   final _clientSecretController = TextEditingController();
   bool _isLoading = false;
   bool _obscureSecret = true;
+  bool _controllersInitialized = false;
+  bool _userHasTyped = false;
 
   @override
   void initState() {
@@ -81,7 +84,7 @@ class _ZoomIntegrationScreenState extends ConsumerState<ZoomIntegrationScreen> {
 
       await repo.updateZoomCredentials(credentials);
 
-      // Refresh the provider
+      // Refresh the provider (controllers already have the correct values from user input)
       ref.invalidate(zoomCredentialsProvider);
 
       if (mounted) {
@@ -171,32 +174,114 @@ class _ZoomIntegrationScreenState extends ConsumerState<ZoomIntegrationScreen> {
           );
         }
       } else {
-        final errorData = response.data;
-        String errorMessage = 'Test failed';
-        if (errorData is Map) {
-          errorMessage = errorData['error']?.toString() ?? errorMessage;
-          if (errorData['details'] != null) {
-            final details = errorData['details'];
-            if (details is Map && details['error'] == 'invalid_client') {
+        // Parse error response
+        String errorMessage = 'Test failed with status ${response.status}';
+        Map<String, dynamic>? errorData;
+
+        try {
+          if (response.data != null) {
+            if (response.data is Map) {
+              errorData = response.data as Map<String, dynamic>;
+            } else if (response.data is String) {
+              try {
+                errorData = Map<String, dynamic>.from(
+                  json.decode(response.data as String) as Map,
+                );
+              } catch (e) {
+                errorMessage = response.data.toString();
+              }
+            }
+          }
+        } catch (e) {
+          errorMessage = 'Failed to parse error response: $e';
+        }
+
+        if (errorData != null) {
+          // Extract error message
+          if (errorData['error'] != null) {
+            errorMessage = errorData['error'].toString();
+          }
+
+          // Check for specific error types
+          final details = errorData['details'];
+          if (details is Map) {
+            if (details['error'] == 'invalid_client') {
               errorMessage =
                   'Invalid Zoom credentials. Please verify:\n'
                   '• Client ID and Client Secret are correct\n'
                   '• No extra spaces in credentials\n'
                   '• OAuth app is activated in Zoom Marketplace\n'
                   '• Account ID is correct';
+            } else if (details['error'] == 'invalid_grant') {
+              errorMessage =
+                  'Invalid Account ID. Please verify:\n'
+                  '• Account ID starts with "C-"\n'
+                  '• Account ID matches your Zoom account\n'
+                  '• No extra spaces or characters';
+            }
+          }
+
+          // Add troubleshooting info if available
+          final troubleshooting = errorData['troubleshooting'];
+          if (troubleshooting is Map) {
+            final tips = <String>[];
+            if (troubleshooting['checkCredentials'] != null) {
+              tips.add(troubleshooting['checkCredentials'].toString());
+            }
+            if (troubleshooting['checkActivation'] != null) {
+              tips.add(troubleshooting['checkActivation'].toString());
+            }
+            if (troubleshooting['checkAccountId'] != null) {
+              tips.add(troubleshooting['checkAccountId'].toString());
+            }
+            if (tips.isNotEmpty) {
+              errorMessage +=
+                  '\n\nTips:\n${tips.map((t) => '• $t').join('\n')}';
             }
           }
         }
+
         throw Exception(errorMessage);
       }
     } catch (e) {
       if (mounted) {
-        final errorMessage = e.toString().replaceAll('Exception: ', '');
+        String errorMessage = 'Connection test failed';
+
+        // Extract meaningful error message
+        final errorString = e.toString();
+        if (errorString.contains('Exception: ')) {
+          errorMessage = errorString.replaceAll('Exception: ', '');
+        } else if (errorString.contains(':')) {
+          // Try to extract message after colon
+          final parts = errorString.split(':');
+          if (parts.length > 1) {
+            errorMessage = parts.sublist(1).join(':').trim();
+          } else {
+            errorMessage = errorString;
+          }
+        } else {
+          errorMessage = errorString;
+        }
+
+        // Handle network/connection errors
+        if (errorMessage.toLowerCase().contains('socket') ||
+            errorMessage.toLowerCase().contains('network') ||
+            errorMessage.toLowerCase().contains('connection') ||
+            errorMessage.toLowerCase().contains('timeout')) {
+          errorMessage =
+              'Network error: Unable to connect to Zoom API. Please check your internet connection and try again.';
+        }
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('❌ Connection test failed: $errorMessage'),
+            content: SingleChildScrollView(
+              child: Text(
+                '❌ Connection test failed:\n\n$errorMessage',
+                style: const TextStyle(fontSize: 14),
+              ),
+            ),
             backgroundColor: Colors.red,
-            duration: const Duration(seconds: 6),
+            duration: const Duration(seconds: 10),
             action: SnackBarAction(
               label: 'Dismiss',
               textColor: Colors.white,
@@ -218,6 +303,39 @@ class _ZoomIntegrationScreenState extends ConsumerState<ZoomIntegrationScreen> {
   Widget build(BuildContext context) {
     final credentialsAsync = ref.watch(zoomCredentialsProvider);
 
+    // Set up listener to initialize controllers once when data first loads
+    ref.listen<AsyncValue<ZoomCredentials>>(zoomCredentialsProvider, (
+      previous,
+      next,
+    ) {
+      next.whenData((credentials) {
+        // Only initialize once, never if user has typed
+        if (!_controllersInitialized && !_userHasTyped && mounted) {
+          final allEmpty =
+              _accountIdController.text.isEmpty &&
+              _clientIdController.text.isEmpty &&
+              _clientSecretController.text.isEmpty;
+
+          if (allEmpty) {
+            // Use Future.microtask to initialize after current build cycle
+            Future.microtask(() {
+              if (mounted &&
+                  !_controllersInitialized &&
+                  !_userHasTyped &&
+                  _accountIdController.text.isEmpty &&
+                  _clientIdController.text.isEmpty &&
+                  _clientSecretController.text.isEmpty) {
+                _accountIdController.text = credentials.accountId;
+                _clientIdController.text = credentials.clientId;
+                _clientSecretController.text = credentials.clientSecret;
+                _controllersInitialized = true;
+              }
+            });
+          }
+        }
+      });
+    });
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Zoom Integration Settings'),
@@ -228,13 +346,6 @@ class _ZoomIntegrationScreenState extends ConsumerState<ZoomIntegrationScreen> {
       ),
       body: credentialsAsync.when(
         data: (credentials) {
-          // Update controllers if data loaded
-          if (_accountIdController.text != credentials.accountId) {
-            _accountIdController.text = credentials.accountId;
-            _clientIdController.text = credentials.clientId;
-            _clientSecretController.text = credentials.clientSecret;
-          }
-
           return SingleChildScrollView(
             padding: const EdgeInsets.all(16),
             child: Form(
@@ -310,7 +421,9 @@ class _ZoomIntegrationScreenState extends ConsumerState<ZoomIntegrationScreen> {
 
                   // Credential Verification Info
                   Card(
-                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.surfaceContainerHighest,
                     child: Padding(
                       padding: const EdgeInsets.all(12),
                       child: Row(
@@ -378,6 +491,7 @@ class _ZoomIntegrationScreenState extends ConsumerState<ZoomIntegrationScreen> {
                       return null;
                     },
                     onChanged: (value) {
+                      _userHasTyped = true; // Mark that user has interacted
                       setState(() {}); // Update suffix icon
                     },
                   ),
@@ -503,7 +617,9 @@ class _ZoomIntegrationScreenState extends ConsumerState<ZoomIntegrationScreen> {
 
                   // Instructions Card
                   Card(
-                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.surfaceContainerHighest,
                     child: Padding(
                       padding: const EdgeInsets.all(16),
                       child: Column(

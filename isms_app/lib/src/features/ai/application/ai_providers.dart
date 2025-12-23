@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/errors/provider_helpers.dart';
 import '../../school_registration/application/school_providers.dart';
 import '../data/ai_repository.dart';
 import '../domain/ai_prompt.dart';
@@ -15,11 +16,18 @@ final aiPromptsProvider = FutureProvider<List<AiPrompt>>((ref) async {
 });
 
 final aiTasksProvider = FutureProvider.autoDispose<List<AiTask>>((ref) async {
-  final school = ref.watch(currentSchoolProvider);
-  if (school == null) return const [];
-  final repo = ref.read(aiRepositoryProvider);
-  ref.keepAlive();
-  return repo.fetchRecentTasks(schoolId: school.id);
+  return safeProviderOperation<List<AiTask>>(
+    ref: ref,
+    operation: (schoolId) async {
+      final repo = ref.read(aiRepositoryProvider);
+      ref.keepAlive();
+      return await repo
+          .fetchRecentTasks(schoolId: schoolId)
+          .timeout(const Duration(seconds: 10));
+    },
+    onError: () => const <AiTask>[],
+    context: 'AiTasksProvider',
+  );
 });
 
 class AiTaskRequest {
@@ -31,18 +39,26 @@ class AiTaskRequest {
 
 final aiTaskCreateProvider = FutureProvider.family
     .autoDispose<AiTask, AiTaskRequest>((ref, request) async {
-      final school = ref.watch(currentSchoolProvider);
-      if (school == null) {
-        throw Exception('No school context available.');
-      }
-      final repo = ref.read(aiRepositoryProvider);
-      final task = await repo.createTask(
-        school: school,
-        promptKey: request.promptKey,
-        input: request.input,
+      return safeProviderOperation<AiTask>(
+        ref: ref,
+        operation: (schoolId) async {
+          final school = ref.read(currentSchoolProvider);
+          if (school == null) {
+            throw Exception('No school context available.');
+          }
+          final repo = ref.read(aiRepositoryProvider);
+          final task = await repo
+              .createTask(
+                school: school,
+                promptKey: request.promptKey,
+                input: request.input,
+              )
+              .timeout(const Duration(seconds: 30));
+          ref.invalidate(aiTasksProvider);
+          return task;
+        },
+        context: 'AiTaskCreateProvider',
       );
-      ref.invalidate(aiTasksProvider);
-      return task;
     });
 
 final aiTaskProvider = FutureProvider.family.autoDispose<AiTask?, String>((

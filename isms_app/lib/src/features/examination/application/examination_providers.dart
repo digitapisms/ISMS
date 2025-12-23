@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/errors/error_handler.dart';
+import '../../../core/errors/provider_helpers.dart';
 import '../../school_registration/application/school_providers.dart';
 import '../data/examination_repository.dart';
 import '../domain/exam.dart';
@@ -22,10 +24,17 @@ final examinationRepositoryProvider = Provider<ExaminationRepository>((ref) {
 // ============================================================
 
 final subjectsProvider = FutureProvider<List<Subject>>((ref) async {
-  final school = ref.watch(currentSchoolProvider);
-  if (school == null) return [];
-  final repo = ref.read(examinationRepositoryProvider);
-  return repo.fetchSubjects(schoolId: school.id, isActive: true);
+  return safeProviderOperation<List<Subject>>(
+    ref: ref,
+    operation: (schoolId) async {
+      final repo = ref.read(examinationRepositoryProvider);
+      return await repo
+          .fetchSubjects(schoolId: schoolId, isActive: true)
+          .timeout(const Duration(seconds: 10));
+    },
+    onError: () => <Subject>[],
+    context: 'SubjectsProvider',
+  );
 });
 
 // ============================================================
@@ -33,20 +42,34 @@ final subjectsProvider = FutureProvider<List<Subject>>((ref) async {
 // ============================================================
 
 final examsProvider = FutureProvider<List<Exam>>((ref) async {
-  final school = ref.watch(currentSchoolProvider);
-  if (school == null) return [];
-  final repo = ref.read(examinationRepositoryProvider);
-  return repo.fetchExams(schoolId: school.id);
+  return safeProviderOperation<List<Exam>>(
+    ref: ref,
+    operation: (schoolId) async {
+      final repo = ref.read(examinationRepositoryProvider);
+      return await repo
+          .fetchExams(schoolId: schoolId)
+          .timeout(const Duration(seconds: 10));
+    },
+    onError: () => <Exam>[],
+    context: 'ExamsProvider',
+  );
 });
 
 final examsByAcademicYearProvider = FutureProvider.family<List<Exam>, String>((
   ref,
   academicYear,
 ) async {
-  final school = ref.watch(currentSchoolProvider);
-  if (school == null) return [];
-  final repo = ref.read(examinationRepositoryProvider);
-  return repo.fetchExams(schoolId: school.id, academicYear: academicYear);
+  return safeProviderOperation<List<Exam>>(
+    ref: ref,
+    operation: (schoolId) async {
+      final repo = ref.read(examinationRepositoryProvider);
+      return await repo
+          .fetchExams(schoolId: schoolId, academicYear: academicYear)
+          .timeout(const Duration(seconds: 10));
+    },
+    onError: () => <Exam>[],
+    context: 'ExamsByAcademicYearProvider',
+  );
 });
 
 final examProvider = FutureProvider.family<Exam, int>((ref, examId) async {
@@ -59,18 +82,32 @@ final examProvider = FutureProvider.family<Exam, int>((ref, examId) async {
 // ============================================================
 
 final examSchedulesProvider = FutureProvider<List<ExamSchedule>>((ref) async {
-  final school = ref.watch(currentSchoolProvider);
-  if (school == null) return [];
-  final repo = ref.read(examinationRepositoryProvider);
-  return repo.fetchExamSchedules(schoolId: school.id);
+  return safeProviderOperation<List<ExamSchedule>>(
+    ref: ref,
+    operation: (schoolId) async {
+      final repo = ref.read(examinationRepositoryProvider);
+      return await repo
+          .fetchExamSchedules(schoolId: schoolId)
+          .timeout(const Duration(seconds: 10));
+    },
+    onError: () => <ExamSchedule>[],
+    context: 'ExamSchedulesProvider',
+  );
 });
 
 final examSchedulesByExamProvider =
     FutureProvider.family<List<ExamSchedule>, int>((ref, examId) async {
-      final school = ref.watch(currentSchoolProvider);
-      if (school == null) return [];
-      final repo = ref.read(examinationRepositoryProvider);
-      return repo.fetchExamSchedules(schoolId: school.id, examId: examId);
+      return safeProviderOperation<List<ExamSchedule>>(
+        ref: ref,
+        operation: (schoolId) async {
+          final repo = ref.read(examinationRepositoryProvider);
+          return await repo
+              .fetchExamSchedules(schoolId: schoolId, examId: examId)
+              .timeout(const Duration(seconds: 10));
+        },
+        onError: () => <ExamSchedule>[],
+        context: 'ExamSchedulesByExamProvider',
+      );
     });
 
 // ============================================================
@@ -78,28 +115,49 @@ final examSchedulesByExamProvider =
 // ============================================================
 
 final examGradesProvider = FutureProvider<List<ExamGrade>>((ref) async {
-  final school = ref.watch(currentSchoolProvider);
-  if (school == null) return [];
-  final repo = ref.read(examinationRepositoryProvider);
-  return repo.fetchExamGrades(schoolId: school.id);
+  return safeProviderOperation<List<ExamGrade>>(
+    ref: ref,
+    operation: (schoolId) async {
+      final repo = ref.read(examinationRepositoryProvider);
+      return await repo
+          .fetchExamGrades(schoolId: schoolId)
+          .timeout(const Duration(seconds: 10));
+    },
+    onError: () => <ExamGrade>[],
+    context: 'ExamGradesProvider',
+  );
 });
 
 final examGradesByExamProvider = FutureProvider.family<List<ExamGrade>, int>((
   ref,
   examId,
 ) async {
-  final school = ref.watch(currentSchoolProvider);
-  if (school == null) return [];
-  final repo = ref.read(examinationRepositoryProvider);
-  return repo.fetchExamGrades(schoolId: school.id, examId: examId);
+  return safeProviderOperation<List<ExamGrade>>(
+    ref: ref,
+    operation: (schoolId) async {
+      final repo = ref.read(examinationRepositoryProvider);
+      return await repo
+          .fetchExamGrades(schoolId: schoolId, examId: examId)
+          .timeout(const Duration(seconds: 10));
+    },
+    onError: () => <ExamGrade>[],
+    context: 'ExamGradesByExamProvider',
+  );
 });
 
 final examGradesByStudentProvider =
     FutureProvider.family<List<ExamGrade>, String>((ref, studentId) async {
-      final school = ref.watch(currentSchoolProvider);
-      if (school == null) return [];
-      final repo = ref.read(examinationRepositoryProvider);
-      return repo.fetchExamGrades(schoolId: school.id, studentId: studentId);
+      return safeProviderOperation<List<ExamGrade>>(
+        ref: ref,
+        operation: (schoolId) async {
+          final repo = ref.read(examinationRepositoryProvider);
+          return await repo
+              .fetchExamGrades(schoolId: schoolId, studentId: studentId)
+              .timeout(const Duration(seconds: 10));
+        },
+        onError: () => <ExamGrade>[],
+        context: 'ExamGradesByStudentProvider',
+      );
     });
 
 // ============================================================
@@ -107,24 +165,52 @@ final examGradesByStudentProvider =
 // ============================================================
 
 final reportCardsProvider = FutureProvider<List<ReportCard>>((ref) async {
-  final school = ref.watch(currentSchoolProvider);
-  if (school == null) return [];
-  final repo = ref.read(examinationRepositoryProvider);
-  return repo.fetchReportCards(schoolId: school.id);
+  return safeProviderOperation<List<ReportCard>>(
+    ref: ref,
+    operation: (schoolId) async {
+      final repo = ref.read(examinationRepositoryProvider);
+      return await repo
+          .fetchReportCards(schoolId: schoolId)
+          .timeout(const Duration(seconds: 10));
+    },
+    onError: () => <ReportCard>[],
+    context: 'ReportCardsProvider',
+  );
 });
 
 final reportCardsByStudentProvider =
     FutureProvider.family<List<ReportCard>, String>((ref, studentId) async {
-      final school = ref.watch(currentSchoolProvider);
-      if (school == null) return [];
-      final repo = ref.read(examinationRepositoryProvider);
-      return repo.fetchReportCards(schoolId: school.id, studentId: studentId);
+      return safeProviderOperation<List<ReportCard>>(
+        ref: ref,
+        operation: (schoolId) async {
+          final repo = ref.read(examinationRepositoryProvider);
+          return await repo
+              .fetchReportCards(schoolId: schoolId, studentId: studentId)
+              .timeout(const Duration(seconds: 10));
+        },
+        onError: () => <ReportCard>[],
+        context: 'ReportCardsByStudentProvider',
+      );
     });
 
 final reportCardProvider = FutureProvider.family<ReportCard, int>((
   ref,
   reportCardId,
 ) async {
-  final repo = ref.read(examinationRepositoryProvider);
-  return repo.getReportCard(reportCardId);
+  final correlationId = ErrorHandler.generateCorrelationId();
+
+  try {
+    final repo = ref.read(examinationRepositoryProvider);
+    return await repo
+        .getReportCard(reportCardId)
+        .timeout(const Duration(seconds: 10));
+  } catch (e) {
+    final error = ErrorHandler.handleException(
+      e,
+      correlationId: correlationId,
+      context: 'ReportCardProvider',
+    );
+    ErrorHandler.logError(error);
+    rethrow;
+  }
 });

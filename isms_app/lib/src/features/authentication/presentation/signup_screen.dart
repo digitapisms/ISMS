@@ -31,6 +31,8 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   bool _validatingInvite = false;
   Map<String, dynamic>? _inviteDetails;
   String? _inviteError;
+  bool _hasInviteCode = false; // Track if invite code field has text
+  bool _hasEmail = false; // Track if email field has text
 
   // Roles that require school selection
   bool get _requiresSchoolSelection =>
@@ -40,14 +42,42 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
       widget.role == UserRole.teacher ||
       widget.role == UserRole.staff;
 
-  bool get _requiresStaffInvite => widget.role == UserRole.staff;
+  // Teacher and staff roles can use invite codes
+  bool get _requiresStaffInvite =>
+      widget.role == UserRole.staff || widget.role == UserRole.teacher;
 
   @override
   void initState() {
     super.initState();
-    _schoolCodeController.addListener(_validateSchoolCode);
-    _emailController.addListener(_maybeRevalidateInvite);
-    _staffInviteCodeController.addListener(_validateStaffInvite);
+    // Only listen to school code validation if NOT using invite-based signup
+    if (!_requiresStaffInvite) {
+      _schoolCodeController.addListener(_validateSchoolCode);
+    }
+    // Track text changes for reactive UI updates and trigger validation
+    _emailController.addListener(() {
+      final hasText = _emailController.text.trim().isNotEmpty;
+      if (_hasEmail != hasText) {
+        setState(() {
+          _hasEmail = hasText;
+        });
+      }
+      // Trigger validation if both fields have text
+      if (_requiresStaffInvite && hasText && _hasInviteCode) {
+        _maybeRevalidateInvite();
+      }
+    });
+    _staffInviteCodeController.addListener(() {
+      final hasText = _staffInviteCodeController.text.trim().isNotEmpty;
+      if (_hasInviteCode != hasText) {
+        setState(() {
+          _hasInviteCode = hasText;
+        });
+      }
+      // Trigger validation if both fields have text
+      if (_requiresStaffInvite && hasText && _hasEmail) {
+        _maybeRevalidateInvite();
+      }
+    });
   }
 
   @override
@@ -60,12 +90,20 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   }
 
   Future<void> _validateSchoolCode() async {
+    // Skip school code validation if invite is already validated (invite sets the school)
+    if (_requiresStaffInvite && _inviteDetails != null) {
+      return;
+    }
+
     final code = _schoolCodeController.text.trim().toUpperCase();
 
     if (code.isEmpty) {
       setState(() {
-        _selectedSchoolId = null;
-        _schoolName = null;
+        // Don't clear school ID if it was set by invite
+        if (!(_requiresStaffInvite && _inviteDetails != null)) {
+          _selectedSchoolId = null;
+          _schoolName = null;
+        }
         _schoolCodeError = null;
       });
       return;
@@ -93,16 +131,22 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
           _schoolName = school.name;
           _schoolCodeError = null;
         } else {
-          _selectedSchoolId = null;
-          _schoolName = null;
+          // Only clear if not set by invite
+          if (!(_requiresStaffInvite && _inviteDetails != null)) {
+            _selectedSchoolId = null;
+            _schoolName = null;
+          }
           _schoolCodeError = 'School code not found or school is not active';
         }
         _validatingCode = false;
       });
     } catch (e) {
       setState(() {
-        _selectedSchoolId = null;
-        _schoolName = null;
+        // Only clear if not set by invite
+        if (!(_requiresStaffInvite && _inviteDetails != null)) {
+          _selectedSchoolId = null;
+          _schoolName = null;
+        }
         _schoolCodeError = 'Error validating school code: ${e.toString()}';
         _validatingCode = false;
       });
@@ -110,9 +154,18 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   }
 
   void _maybeRevalidateInvite() {
+    // Trigger validation when both fields have text
     if (_requiresStaffInvite &&
-        _staffInviteCodeController.text.trim().isNotEmpty) {
-      _validateStaffInvite();
+        _staffInviteCodeController.text.trim().isNotEmpty &&
+        _emailController.text.trim().isNotEmpty) {
+      // Debounce to avoid too many calls
+      Future.delayed(const Duration(milliseconds: 800), () {
+        if (mounted &&
+            _staffInviteCodeController.text.trim().isNotEmpty &&
+            _emailController.text.trim().isNotEmpty) {
+          _validateStaffInvite();
+        }
+      });
     }
   }
 
@@ -125,6 +178,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
       setState(() {
         _inviteDetails = null;
         _inviteError = null;
+        _validatingInvite = false;
       });
       return;
     }
@@ -136,23 +190,53 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
 
     try {
       final repo = StaffRepository();
+      // Note: validateInvite doesn't need schoolId - it's a public function for signup
       final result = await repo.validateInvite(code: code, email: email);
+
+      if (!mounted) return;
+
       setState(() {
         _inviteDetails = result;
         if (result != null) {
           _selectedSchoolId = result['school_id'] as String?;
           _schoolName = result['school_name'] as String?;
+          // Clear school code error and any previous school code input since invite sets the school
+          _schoolCodeError = null;
+          _schoolCodeController.clear(); // Clear any school code input
+          _inviteError = null;
+        } else {
+          // Invite validation failed - clear school info
+          _selectedSchoolId = null;
+          _schoolName = null;
+          _inviteError = 'Invite not found or invalid for this email';
         }
-        _inviteError = result == null
-            ? 'Invite not found for this email'
-            : null;
         _validatingInvite = false;
       });
-    } catch (e) {
+    } catch (e, stackTrace) {
+      debugPrint('Error validating invite: $e');
+      debugPrint('Stack trace: $stackTrace');
+
+      if (!mounted) return;
+
       setState(() {
         _validatingInvite = false;
         _inviteDetails = null;
-        _inviteError = 'Unable to validate invite: $e';
+        _selectedSchoolId = null;
+        _schoolName = null;
+
+        // Extract user-friendly error message
+        String errorMsg = 'Unable to validate invite';
+        if (e is Exception) {
+          final errorStr = e.toString();
+          if (errorStr.contains('not found') || errorStr.contains('invalid')) {
+            errorMsg = 'Invite not found or invalid for this email';
+          } else if (errorStr.contains('expired')) {
+            errorMsg = 'This invite has expired';
+          } else if (errorStr.length < 100) {
+            errorMsg = errorStr.replaceFirst('Exception: ', '');
+          }
+        }
+        _inviteError = errorMsg;
       });
     }
   }
@@ -169,7 +253,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
 
     if (_requiresStaffInvite && _inviteDetails == null) {
       setState(() {
-        _error = 'A valid staff invite is required';
+        _error = 'A valid invite code is required';
       });
       return;
     }
@@ -180,11 +264,23 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     });
 
     try {
+      // Determine the role to use: if invite exists, use invite's role, otherwise use widget role
+      UserRole roleToUse = widget.role;
+      if (_requiresStaffInvite && _inviteDetails != null) {
+        // Get role from invite details - the invite specifies the exact role
+        final inviteRoleStr = _inviteDetails!['role'] as String?;
+        if (inviteRoleStr != null) {
+          // Map invite role string to UserRole
+          roleToUse = UserRoleX.fromDb(inviteRoleStr);
+          debugPrint('Using role from invite: $inviteRoleStr -> $roleToUse (widget role was: ${widget.role})');
+        }
+      }
+      
       final repo = ref.read(authRepositoryProvider);
       await repo.signUpWithEmail(
         email: _emailController.text.trim(),
         password: _passwordController.text,
-        role: widget.role,
+        role: roleToUse,
         schoolId: _selectedSchoolId,
       );
 
@@ -208,7 +304,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
           !errorMessage.toLowerCase().contains('sign in')) {
         errorMessage = 'Sign up failed: $errorMessage';
       }
-      
+
       setState(() {
         _error = errorMessage;
       });
@@ -230,9 +326,11 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
       case UserRole.parent:
         return 'Select your child\'s school';
       case UserRole.teacher:
-        return 'Select the school where you teach';
+        return _requiresStaffInvite
+            ? 'Enter your teacher invite code'
+            : 'Select the school where you teach';
       case UserRole.staff:
-        return 'Select the school where you work';
+        return 'Enter your staff invite code';
       default:
         return '';
     }
@@ -256,252 +354,396 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                    Text(
-                      'Sign up as ${_getRoleName(widget.role)}',
-                      style: Theme.of(context).textTheme.headlineSmall,
-                    ),
-                    if (_requiresSchoolSelection) ...[
-                      const SizedBox(height: 8),
                       Text(
-                        _getRoleDescription(),
-                        style: Theme.of(context).textTheme.bodySmall,
+                        'Sign up as ${_getRoleName(widget.role)}',
+                        style: Theme.of(context).textTheme.headlineSmall,
                       ),
-                    ],
-                    const SizedBox(height: 16),
-                    if (_requiresSchoolSelection) ...[
-                      TextFormField(
-                        controller: _schoolCodeController,
-                        decoration: InputDecoration(
-                          labelText: 'School Code',
-                          hintText: 'Enter your school code',
-                          border: const OutlineInputBorder(),
-                          prefixIcon: const Icon(Icons.vpn_key),
-                          suffixIcon: _validatingCode
-                              ? const SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: Padding(
-                                    padding: EdgeInsets.all(12),
+                      if (_requiresSchoolSelection) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          _getRoleDescription(),
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ],
+                      const SizedBox(height: 16),
+                      if (_requiresSchoolSelection &&
+                          !_requiresStaffInvite) ...[
+                        // Only show school code field if NOT using invite (teacher/staff use invite instead)
+                        TextFormField(
+                          controller: _schoolCodeController,
+                          decoration: InputDecoration(
+                            labelText: 'School Code',
+                            hintText: 'Enter your school code',
+                            border: const OutlineInputBorder(),
+                            prefixIcon: const Icon(Icons.vpn_key),
+                            suffixIcon: _validatingCode
+                                ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: Padding(
+                                      padding: EdgeInsets.all(12),
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    ),
+                                  )
+                                : _selectedSchoolId != null
+                                ? Icon(
+                                    Icons.check_circle,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.primary,
+                                  )
+                                : null,
+                            helperText:
+                                'Ask your school administrator for the registration code',
+                          ),
+                          textCapitalization: TextCapitalization.characters,
+                          validator: (value) {
+                            if (_requiresSchoolSelection) {
+                              if (value == null || value.trim().isEmpty) {
+                                return 'Please enter your school code';
+                              }
+                              if (_selectedSchoolId == null) {
+                                return 'Invalid school code. Please check and try again.';
+                              }
+                            }
+                            return null;
+                          },
+                        ),
+                        if (_schoolCodeError != null) ...[
+                          const SizedBox(height: 8),
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.errorContainer,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.error_outline,
+                                  color: Theme.of(context).colorScheme.error,
+                                  size: 20,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    _schoolCodeError!,
+                                    style: TextStyle(
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onErrorContainer,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                        if (_schoolName != null) ...[
+                          const SizedBox(height: 8),
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.primaryContainer.withOpacity(0.3),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.primary.withOpacity(0.3),
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.school,
+                                  color: Theme.of(context).colorScheme.primary,
+                                  size: 20,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    _schoolName!,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodyMedium
+                                        ?.copyWith(fontWeight: FontWeight.w500),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 16),
+                      ],
+                      if (_requiresStaffInvite) ...[
+                        // Show invite code field first for teacher/staff signups
+                        TextFormField(
+                          controller: _staffInviteCodeController,
+                          decoration: InputDecoration(
+                            labelText: widget.role == UserRole.teacher
+                                ? 'Teacher Invite Code'
+                                : 'Staff Invite Code',
+                            prefixIcon: const Icon(Icons.badge),
+                            suffixIcon: _validatingInvite
+                                ? const SizedBox(
+                                    width: 18,
+                                    height: 18,
                                     child: CircularProgressIndicator(
                                       strokeWidth: 2,
                                     ),
-                                  ),
-                                )
-                              : _selectedSchoolId != null
-                              ? Icon(
-                                  Icons.check_circle,
-                                  color: Theme.of(context).colorScheme.primary,
-                                )
-                              : null,
-                          helperText:
-                              'Ask your school administrator for the registration code',
+                                  )
+                                : _inviteDetails != null
+                                ? Icon(
+                                    Icons.verified,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.primary,
+                                  )
+                                : null,
+                            helperText:
+                                'Enter the invite code shared by your administrator',
+                          ),
+                          textCapitalization: TextCapitalization.characters,
+                          onChanged: (value) {
+                            final hasCode = value.trim().isNotEmpty;
+                            final hasEmail = _emailController.text
+                                .trim()
+                                .isNotEmpty;
+
+                            // Update state to trigger rebuild
+                            setState(() {
+                              _hasInviteCode = hasCode;
+                              _inviteDetails = null;
+                              _inviteError = null;
+                            });
+
+                            // Auto-validate if both fields are filled
+                            if (hasCode && hasEmail) {
+                              // Debounce validation
+                              Future.delayed(
+                                const Duration(milliseconds: 800),
+                                () {
+                                  if (mounted &&
+                                      _staffInviteCodeController.text
+                                          .trim()
+                                          .isNotEmpty &&
+                                      _emailController.text.trim().isNotEmpty) {
+                                    _validateStaffInvite();
+                                  }
+                                },
+                              );
+                            }
+                          },
+                          onFieldSubmitted: (value) {
+                            // Validate when user presses enter/tab
+                            if (value.trim().isNotEmpty &&
+                                _emailController.text.trim().isNotEmpty) {
+                              _validateStaffInvite();
+                            }
+                          },
+                          validator: (value) {
+                            if (_requiresStaffInvite) {
+                              if (value == null || value.trim().isEmpty) {
+                                return 'Invite code required';
+                              }
+                              if (_inviteDetails == null) {
+                                return _inviteError ?? 'Invalid invite code';
+                              }
+                            }
+                            return null;
+                          },
                         ),
-                        textCapitalization: TextCapitalization.characters,
+                        if (_inviteError != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: Text(
+                              _inviteError!,
+                              style: TextStyle(
+                                color: Theme.of(context).colorScheme.error,
+                              ),
+                            ),
+                          ),
+                        // Add a manual validate button
+                        if (_requiresStaffInvite &&
+                            _hasInviteCode &&
+                            _hasEmail &&
+                            _inviteDetails == null &&
+                            !_validatingInvite) ...[
+                          const SizedBox(height: 8),
+                          OutlinedButton.icon(
+                            onPressed: () {
+                              _validateStaffInvite();
+                            },
+                            icon: const Icon(Icons.verified_user, size: 18),
+                            label: const Text('Validate Invite Code'),
+                          ),
+                        ],
+                        // Show school name when invite is validated (for invite-based signups)
+                        if (_inviteDetails != null && _schoolName != null) ...[
+                          const SizedBox(height: 8),
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.primaryContainer.withOpacity(0.3),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.primary.withOpacity(0.3),
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.school,
+                                  color: Theme.of(context).colorScheme.primary,
+                                  size: 20,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    _schoolName!,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodyMedium
+                                        ?.copyWith(fontWeight: FontWeight.w500),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 16),
+                      ],
+                      TextFormField(
+                        controller: _emailController,
+                        decoration: const InputDecoration(
+                          labelText: 'Email',
+                          prefixIcon: Icon(Icons.email),
+                        ),
+                        keyboardType: TextInputType.emailAddress,
+                        onChanged: (value) {
+                          // Clear previous validation when email changes
+                          if (_requiresStaffInvite) {
+                            final hasEmail = value.trim().isNotEmpty;
+                            final hasCode = _staffInviteCodeController.text
+                                .trim()
+                                .isNotEmpty;
+
+                            // Update state to trigger rebuild
+                            setState(() {
+                              _hasEmail = hasEmail;
+                              _inviteDetails = null;
+                              _inviteError = null;
+                            });
+
+                            // Auto-validate if both fields are filled
+                            if (hasEmail && hasCode) {
+                              // Debounce validation
+                              Future.delayed(
+                                const Duration(milliseconds: 800),
+                                () {
+                                  if (mounted &&
+                                      _emailController.text.trim().isNotEmpty &&
+                                      _staffInviteCodeController.text
+                                          .trim()
+                                          .isNotEmpty) {
+                                    _validateStaffInvite();
+                                  }
+                                },
+                              );
+                            }
+                          }
+                        },
+                        onFieldSubmitted: (value) {
+                          // Validate when user presses enter/tab
+                          if (_requiresStaffInvite &&
+                              value.trim().isNotEmpty &&
+                              _staffInviteCodeController.text
+                                  .trim()
+                                  .isNotEmpty) {
+                            _validateStaffInvite();
+                          }
+                        },
                         validator: (value) {
-                          if (_requiresSchoolSelection) {
-                            if (_requiresStaffInvite &&
-                                _inviteDetails != null) {
-                              return null;
-                            }
-                            if (value == null || value.trim().isEmpty) {
-                              return 'Please enter your school code';
-                            }
-                            if (_selectedSchoolId == null) {
-                              return 'Invalid school code. Please check and try again.';
-                            }
+                          if (value == null || value.isEmpty) {
+                            return 'Please enter your email';
+                          }
+                          if (!value.contains('@')) {
+                            return 'Please enter a valid email';
                           }
                           return null;
                         },
                       ),
-                      if (_schoolCodeError != null) ...[
-                        const SizedBox(height: 8),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: _passwordController,
+                        obscureText: _obscurePassword,
+                        decoration: InputDecoration(
+                          labelText: 'Password',
+                          prefixIcon: const Icon(Icons.lock),
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              _obscurePassword
+                                  ? Icons.visibility
+                                  : Icons.visibility_off,
+                            ),
+                            onPressed: () {
+                              setState(() {
+                                _obscurePassword = !_obscurePassword;
+                              });
+                            },
+                          ),
+                        ),
+                        validator: (value) {
+                          if (value == null || value.length < 6) {
+                            return 'Password must be at least 6 characters';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      if (_error != null) ...[
                         Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
                             color: Theme.of(context).colorScheme.errorContainer,
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.error_outline,
-                                color: Theme.of(context).colorScheme.error,
-                                size: 20,
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  _schoolCodeError!,
-                                  style: TextStyle(
-                                    color: Theme.of(context).colorScheme.onErrorContainer,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                      if (_schoolName != null) ...[
-                        const SizedBox(height: 8),
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.primaryContainer.withOpacity(0.3),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
+                          child: Text(
+                            _error!,
+                            style: TextStyle(
                               color: Theme.of(
                                 context,
-                              ).colorScheme.primary.withOpacity(0.3),
+                              ).colorScheme.onErrorContainer,
                             ),
                           ),
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.school,
-                                color: Theme.of(context).colorScheme.primary,
-                                size: 20,
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  _schoolName!,
-                                  style: Theme.of(context).textTheme.bodyMedium
-                                      ?.copyWith(fontWeight: FontWeight.w500),
-                                ),
-                              ),
-                            ],
-                          ),
                         ),
+                        const SizedBox(height: 8),
                       ],
-                      const SizedBox(height: 16),
-                    ],
-                    TextFormField(
-                      controller: _emailController,
-                      decoration: const InputDecoration(
-                        labelText: 'Email',
-                        prefixIcon: Icon(Icons.email),
-                      ),
-                      keyboardType: TextInputType.emailAddress,
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Please enter your email';
-                        }
-                        if (!value.contains('@')) {
-                          return 'Please enter a valid email';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 12),
-                    if (_requiresStaffInvite) ...[
-                      TextFormField(
-                        controller: _staffInviteCodeController,
-                        decoration: InputDecoration(
-                          labelText: 'Staff Invite Code',
-                          prefixIcon: const Icon(Icons.badge),
-                          suffixIcon: _validatingInvite
-                              ? const SizedBox(
-                                  width: 18,
-                                  height: 18,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                  ),
-                                )
-                              : _inviteDetails != null
-                              ? Icon(
-                                  Icons.verified,
-                                  color: Theme.of(context).colorScheme.primary,
-                                )
-                              : null,
-                          helperText:
-                              'Enter the invite code shared by your administrator',
-                        ),
-                        textCapitalization: TextCapitalization.characters,
-                        validator: (value) {
-                          if (_requiresStaffInvite) {
-                            if (value == null || value.trim().isEmpty) {
-                              return 'Invite code required for staff accounts';
-                            }
-                            if (_inviteDetails == null) {
-                              return _inviteError ?? 'Invalid invite code';
-                            }
-                          }
-                          return null;
-                        },
-                      ),
-                      if (_inviteError != null)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 8),
-                          child: Text(
-                            _inviteError!,
-                            style: TextStyle(
-                              color: Theme.of(context).colorScheme.error,
-                            ),
-                          ),
-                        ),
-                      const SizedBox(height: 12),
-                    ],
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: _passwordController,
-                      obscureText: _obscurePassword,
-                      decoration: InputDecoration(
-                        labelText: 'Password',
-                        prefixIcon: const Icon(Icons.lock),
-                        suffixIcon: IconButton(
-                          icon: Icon(
-                            _obscurePassword
-                                ? Icons.visibility
-                                : Icons.visibility_off,
-                          ),
-                          onPressed: () {
-                            setState(() {
-                              _obscurePassword = !_obscurePassword;
-                            });
-                          },
-                        ),
-                      ),
-                      validator: (value) {
-                        if (value == null || value.length < 6) {
-                          return 'Password must be at least 6 characters';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    if (_error != null) ...[
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.errorContainer,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          _error!,
-                          style: TextStyle(
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.onErrorContainer,
-                          ),
-                        ),
-                      ),
                       const SizedBox(height: 8),
+                      FilledButton(
+                        onPressed: _isLoading ? null : _signUp,
+                        child: _isLoading
+                            ? const SizedBox(
+                                height: 20,
+                                width: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Text('Sign Up'),
+                      ),
                     ],
-                    const SizedBox(height: 8),
-                    FilledButton(
-                      onPressed: _isLoading ? null : _signUp,
-                      child: _isLoading
-                          ? const SizedBox(
-                              height: 20,
-                              width: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Text('Sign Up'),
-                    ),
-                  ],
                   ),
                 ),
               ),

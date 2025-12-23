@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../application/online_class_providers.dart';
 import '../../domain/online_class.dart';
@@ -198,19 +199,61 @@ class _OnlineClassCard extends StatelessWidget {
     );
   }
 
-  void _joinClass(BuildContext context, OnlineClass onlineClass) {
-    // TODO: Implement join class functionality
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Joining \\${onlineClass.title}...'),
-        action: SnackBarAction(
-          label: 'Open',
-          onPressed: () {
-            // Open meeting URL
-          },
-        ),
-      ),
-    );
+  Future<void> _joinClass(BuildContext context, OnlineClass onlineClass) async {
+    // Determine the URL to open
+    String? urlToOpen;
+
+    if (onlineClass.customMeetingUrl != null &&
+        onlineClass.customMeetingUrl!.isNotEmpty) {
+      urlToOpen = onlineClass.customMeetingUrl!;
+    } else if (onlineClass.meetingUrl.isNotEmpty) {
+      urlToOpen = onlineClass.meetingUrl;
+    } else {
+      // No URL available
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Meeting URL is not available. Please contact the class organizer.',
+            ),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return;
+    }
+
+    // Validate URL format
+    final uri = Uri.tryParse(urlToOpen);
+    if (uri == null || (!uri.hasScheme)) {
+      // Try to add https:// if no scheme
+      if (!urlToOpen.startsWith('http://') &&
+          !urlToOpen.startsWith('https://')) {
+        urlToOpen = 'https://$urlToOpen';
+      }
+    }
+
+    // Launch the URL
+    try {
+      final finalUri = Uri.parse(urlToOpen);
+      final launched = await launchUrl(
+        finalUri,
+        mode: LaunchMode.externalApplication,
+      );
+
+      if (!launched) {
+        throw Exception('Could not launch URL');
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to open meeting: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 }
 

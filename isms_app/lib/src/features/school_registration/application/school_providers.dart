@@ -18,7 +18,9 @@ final schoolRepositoryProvider = Provider<SchoolRepository>((ref) {
 });
 
 final currentSchoolProvider = Provider<School?>((ref) {
-  // Get school from tenant context
+  // Get school from tenant context (reactive).
+  // NOTE: This MUST be reactive so screens/providers update when the school
+  // context is loaded after login.
   return ref.watch(tenantContextProvider);
 });
 

@@ -76,7 +76,7 @@ serve(async (req) => {
           setting_key: 'ZOOM_ACCOUNT_ID',
           setting_value: secrets.ZOOM_ACCOUNT_ID,
           description: 'Zoom Account ID for OAuth authentication',
-          is_encrypted: true,
+          // Avoid referencing is_encrypted to prevent schema cache issues
         }),
       supabase
         .from('system_settings')
@@ -84,7 +84,7 @@ serve(async (req) => {
           setting_key: 'ZOOM_CLIENT_ID',
           setting_value: secrets.ZOOM_CLIENT_ID,
           description: 'Zoom OAuth Client ID',
-          is_encrypted: true,
+          // Avoid referencing is_encrypted to prevent schema cache issues
         }),
       supabase
         .from('system_settings')
@@ -92,7 +92,7 @@ serve(async (req) => {
           setting_key: 'ZOOM_CLIENT_SECRET',
           setting_value: secrets.ZOOM_CLIENT_SECRET,
           description: 'Zoom OAuth Client Secret',
-          is_encrypted: true,
+          // Avoid referencing is_encrypted to prevent schema cache issues
         }),
     ];
 

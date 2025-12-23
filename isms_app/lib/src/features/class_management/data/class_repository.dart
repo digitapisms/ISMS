@@ -1,10 +1,18 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/errors/app_error.dart';
+import '../../../core/errors/error_handler.dart';
+import '../../../core/errors/error_repository_mixin.dart';
+import '../../../core/errors/validation.dart';
 import '../../../core/network/supabase_client.dart';
 import '../domain/class_model.dart';
 import '../domain/section_model.dart';
 
-class ClassRepository {
+/// Repository for class and section management
+///
+/// Handles all database operations for classes and sections with
+/// proper error handling, validation, and timeouts.
+class ClassRepository with ErrorRepositoryMixin {
   SupabaseClient get _client => SupabaseManager.client;
   String? _schoolId;
 
@@ -14,72 +22,126 @@ class ClassRepository {
 
   String? get schoolId => _schoolId;
 
-  String _requireSchoolId() {
-    final id = _schoolId;
-    if (id == null) {
-      throw Exception(
-        'School context is required. Please ensure you are signed in to a school tenant.',
-      );
-    }
-    return id;
-  }
-
   // =========================================================
   // CLASS METHODS
   // =========================================================
 
   /// Get all classes for the current school
   Future<List<ClassModel>> getClasses({bool? activeOnly}) async {
-    final schoolId = _schoolId;
-    if (schoolId == null) {
-      return const [];
-    }
-    final baseQuery = _client
-        .from('classes')
-        .select()
-        .eq('school_id', schoolId);
+    final correlationId = ErrorHandler.generateCorrelationId();
 
-    final filteredQuery = activeOnly == true
-        ? baseQuery.eq('is_active', true)
-        : baseQuery;
+    try {
+      final schoolId = _schoolId;
+      if (schoolId == null) {
+        return <ClassModel>[];
+      }
 
-    final response = await filteredQuery.order('name', ascending: true);
-    final data = response;
+      // Validate school ID format
+      final validationError = Validation.validateUuid(schoolId, 'school_id');
+      if (validationError != null) {
+        throw validationError;
+      }
 
-    // Get section counts separately
-    final classes = data.map((row) {
-      return ClassModel.fromMap(row);
-    }).toList();
+      final baseQuery = _client
+          .from('classes')
+          .select()
+          .eq('school_id', schoolId);
 
-    // Fetch section counts for each class
-    for (final classModel in classes) {
-      final sections = await _client
-          .from('sections')
-          .select('id')
-          .eq('class_id', classModel.id)
-          .eq('is_active', true);
+      final filteredQuery = activeOnly == true
+          ? baseQuery.eq('is_active', true)
+          : baseQuery;
 
-      final sectionCount = (sections as List).length;
-      classes[classes.indexOf(classModel)] = classModel.copyWith(
-        sectionCount: sectionCount,
+      final response = await filteredQuery
+          .order('name', ascending: true)
+          .timeout(const Duration(seconds: 10));
+      final data = response as List;
+
+      // Parse classes with error handling
+      final classes = <ClassModel>[];
+      for (final row in data) {
+        try {
+          final classModel = ClassModel.fromMap(row as Map<String, dynamic>);
+          classes.add(classModel);
+        } catch (e, stackTrace) {
+          final error = ErrorHandler.handleException(
+            e,
+            stackTrace: stackTrace,
+            correlationId: correlationId,
+            context: 'Parsing class data',
+          );
+          ErrorHandler.logError(error, context: 'getClasses');
+          // Continue with other classes instead of failing entirely
+        }
+      }
+
+      // Fetch section counts with timeout per class (skip if takes too long)
+      for (final classModel in classes) {
+        try {
+          final sections = await _client
+              .from('sections')
+              .select('id')
+              .eq('class_id', classModel.id)
+              .eq('is_active', true)
+              .timeout(const Duration(seconds: 1));
+          final sectionCount = (sections as List).length;
+          final index = classes.indexOf(classModel);
+          if (index >= 0) {
+            classes[index] = classModel.copyWith(sectionCount: sectionCount);
+          }
+        } catch (e) {
+          // Skip section count on timeout/error - it's optional
+          // Don't log to avoid spam
+        }
+      }
+
+      return classes;
+    } catch (e) {
+      final error = ErrorHandler.handleException(
+        e,
+        correlationId: correlationId,
+        context: 'ClassRepository.getClasses',
       );
+      ErrorHandler.logError(error, context: 'getClasses');
+      return <ClassModel>[];
     }
-
-    return classes;
   }
 
   /// Get a single class by ID
   Future<ClassModel?> getClassById(int classId) async {
-    final schoolId = _requireSchoolId();
-    final response = await _client
-        .from('classes')
-        .select()
-        .eq('id', classId)
-        .eq('school_id', schoolId)
-        .maybeSingle();
+    final correlationId = ErrorHandler.generateCorrelationId();
 
-    if (response == null) return null;
-    return ClassModel.fromMap(response);
+    return safeDbOperation(
+      operation: () async {
+        final schoolId = validateSchoolId(
+          _schoolId,
+          correlationId: correlationId,
+        );
+
+        // Validate classId
+        if (classId <= 0) {
+          throw ValidationError(
+            message: 'Invalid class ID: $classId',
+            userMessage: 'Invalid class identifier.',
+            field: 'classId',
+          );
+        }
+
+        final response = await _client
+            .from('classes')
+            .select()
+            .eq('id', classId)
+            .eq('school_id', schoolId)
+            .maybeSingle();
+
+        if (response == null) {
+          return null;
+        }
+
+        return ClassModel.fromMap(response);
+      },
+      context: 'ClassRepository.getClassById',
+      correlationId: correlationId,
+    );
   }
 
   /// Create a new class
@@ -90,21 +152,54 @@ class ClassRepository {
     String? description,
     bool isActive = true,
   }) async {
-    final schoolId = _requireSchoolId();
-    final response = await _client
-        .from('classes')
-        .insert({
-          'school_id': schoolId,
-          'name': name,
-          'code': code,
-          // 'level': level, // Column doesn't exist in database
-          // 'description': description, // Column doesn't exist in database
-          'is_active': isActive,
-        })
-        .select()
-        .single();
+    final correlationId = ErrorHandler.generateCorrelationId();
 
-    return ClassModel.fromMap(response);
+    return safeDbOperation(
+      operation: () async {
+        // Input validation
+        final nameError = Validation.validateRequired(name, 'name');
+        if (nameError != null) throw nameError;
+
+        final lengthError = Validation.validateLength(
+          name,
+          'name',
+          min: 1,
+          max: 100,
+        );
+        if (lengthError != null) throw lengthError;
+
+        if (code != null) {
+          final codeLengthError = Validation.validateLength(
+            code,
+            'code',
+            max: 20,
+          );
+          if (codeLengthError != null) throw codeLengthError;
+        }
+
+        final schoolId = validateSchoolId(
+          _schoolId,
+          correlationId: correlationId,
+        );
+
+        final response = await _client
+            .from('classes')
+            .insert({
+              'school_id': schoolId,
+              'name': name.trim(),
+              'code': code?.trim(),
+              'grade_level': level?.trim(),
+              'description': description?.trim(),
+              'is_active': isActive,
+            })
+            .select()
+            .single();
+
+        return ClassModel.fromMap(response);
+      },
+      context: 'ClassRepository.createClass',
+      correlationId: correlationId,
+    );
   }
 
   /// Update a class
@@ -116,66 +211,150 @@ class ClassRepository {
     String? description,
     bool? isActive,
   }) async {
-    final schoolId = _requireSchoolId();
-    final updates = <String, dynamic>{};
-    if (name != null) updates['name'] = name;
-    if (code != null) updates['code'] = code;
-    // if (level != null) updates['level'] = level; // Column doesn't exist in database
-    // if (description != null) updates['description'] = description; // Column doesn't exist in database
-    if (isActive != null) updates['is_active'] = isActive;
+    final correlationId = ErrorHandler.generateCorrelationId();
 
-    final response = await _client
-        .from('classes')
-        .update(updates)
-        .eq('id', id)
-        .eq('school_id', schoolId)
-        .select()
-        .single();
+    return safeDbOperation(
+      operation: () async {
+        // Validate ID
+        if (id <= 0) {
+          throw ValidationError(
+            message: 'Invalid class ID: $id',
+            userMessage: 'Invalid class identifier.',
+            field: 'id',
+          );
+        }
 
-    return ClassModel.fromMap(response);
+        // Validate name if provided
+        if (name != null) {
+          final nameError = Validation.validateRequired(name, 'name');
+          if (nameError != null) throw nameError;
+          final lengthError = Validation.validateLength(
+            name,
+            'name',
+            min: 1,
+            max: 100,
+          );
+          if (lengthError != null) throw lengthError;
+        }
+
+        final schoolId = validateSchoolId(
+          _schoolId,
+          correlationId: correlationId,
+        );
+
+        final updates = <String, dynamic>{};
+        if (name != null) updates['name'] = name.trim();
+        if (code != null) updates['code'] = code.trim();
+        if (level != null) updates['grade_level'] = level.trim();
+        if (description != null) updates['description'] = description.trim();
+        if (isActive != null) updates['is_active'] = isActive;
+
+        if (updates.isEmpty) {
+          // No updates provided, fetch and return existing
+          return await getClassById(id) ??
+              (throw DatabaseError.notFound(
+                resource: 'Class with ID $id',
+                correlationId: correlationId,
+              ));
+        }
+
+        final response = await _client
+            .from('classes')
+            .update(updates)
+            .eq('id', id)
+            .eq('school_id', schoolId)
+            .select()
+            .single();
+
+        return ClassModel.fromMap(response);
+      },
+      context: 'ClassRepository.updateClass',
+      correlationId: correlationId,
+    );
   }
 
   /// Delete a class (soft delete by setting is_active = false)
   Future<void> deleteClass(int id) async {
-    final schoolId = _requireSchoolId();
-    await _client
-        .from('classes')
-        .update({'is_active': false})
-        .eq('id', id)
-        .eq('school_id', schoolId);
+    final correlationId = ErrorHandler.generateCorrelationId();
+
+    return safeDbOperation(
+      operation: () async {
+        if (id <= 0) {
+          throw ValidationError(
+            message: 'Invalid class ID: $id',
+            userMessage: 'Invalid class identifier.',
+            field: 'id',
+          );
+        }
+
+        final schoolId = validateSchoolId(
+          _schoolId,
+          correlationId: correlationId,
+        );
+
+        await _client
+            .from('classes')
+            .update({'is_active': false})
+            .eq('id', id)
+            .eq('school_id', schoolId);
+      },
+      context: 'ClassRepository.deleteClass',
+      correlationId: correlationId,
+    );
   }
 
   /// Permanently delete a class (only if no students assigned)
   Future<void> permanentlyDeleteClass(int id) async {
-    final schoolId = _requireSchoolId();
+    final correlationId = ErrorHandler.generateCorrelationId();
 
-    // Check if class has students
-    final students = await _client
-        .from('students')
-        .select('id')
-        .eq('class_id', id)
-        .eq('school_id', schoolId)
-        .limit(1);
+    return safeDbOperation(
+      operation: () async {
+        if (id <= 0) {
+          throw ValidationError(
+            message: 'Invalid class ID: $id',
+            userMessage: 'Invalid class identifier.',
+            field: 'id',
+          );
+        }
 
-    if ((students as List).isNotEmpty) {
-      throw Exception(
-        'Cannot delete class. There are students assigned to this class.',
-      );
-    }
+        final schoolId = validateSchoolId(
+          _schoolId,
+          correlationId: correlationId,
+        );
 
-    // Delete sections first (cascade will handle this, but explicit is better)
-    await _client
-        .from('sections')
-        .delete()
-        .eq('class_id', id)
-        .eq('school_id', schoolId);
+        // Check if class has students
+        final students = await _client
+            .from('students')
+            .select('id')
+            .eq('class_id', id)
+            .eq('school_id', schoolId)
+            .limit(1);
 
-    // Delete class
-    await _client
-        .from('classes')
-        .delete()
-        .eq('id', id)
-        .eq('school_id', schoolId);
+        if ((students as List).isNotEmpty) {
+          throw BusinessLogicError.invalidOperation(
+            operation: 'delete_class',
+            reason: 'Class has assigned students',
+            correlationId: correlationId,
+          );
+        }
+
+        // Delete sections first
+        await _client
+            .from('sections')
+            .delete()
+            .eq('class_id', id)
+            .eq('school_id', schoolId);
+
+        // Delete class
+        await _client
+            .from('classes')
+            .delete()
+            .eq('id', id)
+            .eq('school_id', schoolId);
+      },
+      context: 'ClassRepository.permanentlyDeleteClass',
+      correlationId: correlationId,
+    );
   }
 
   // =========================================================
@@ -187,57 +366,118 @@ class ClassRepository {
     int classId, {
     bool? activeOnly,
   }) async {
-    final schoolId = _schoolId;
-    if (schoolId == null) {
-      return const [];
-    }
-    final baseQuery = _client
-        .from('sections')
-        .select()
-        .eq('class_id', classId)
-        .eq('school_id', schoolId);
+    final correlationId = ErrorHandler.generateCorrelationId();
 
-    final filteredQuery = activeOnly == true
-        ? baseQuery.eq('is_active', true)
-        : baseQuery;
+    try {
+      if (classId <= 0) {
+        return <SectionModel>[];
+      }
 
-    final response = await filteredQuery.order('name');
-    final data = response;
+      final schoolId = _schoolId;
+      if (schoolId == null) {
+        return <SectionModel>[];
+      }
 
-    // Get student counts separately
-    final sections = data.map((row) {
-      return SectionModel.fromMap(row);
-    }).toList();
-
-    // Fetch student counts for each section
-    for (final section in sections) {
-      final students = await _client
-          .from('students')
-          .select('id')
-          .eq('section_id', section.id)
+      final baseQuery = _client
+          .from('sections')
+          .select()
+          .eq('class_id', classId)
           .eq('school_id', schoolId);
 
-      final studentCount = (students as List).length;
-      sections[sections.indexOf(section)] = section.copyWith(
-        studentCount: studentCount,
-      );
-    }
+      final filteredQuery = activeOnly == true
+          ? baseQuery.eq('is_active', true)
+          : baseQuery;
 
-    return sections;
+      final response = await filteredQuery
+          .order('name')
+          .timeout(const Duration(seconds: 10));
+      final data = response as List;
+
+      // Parse sections with error handling
+      final sections = <SectionModel>[];
+      for (final row in data) {
+        try {
+          final section = SectionModel.fromMap(row as Map<String, dynamic>);
+          sections.add(section);
+        } catch (e, stackTrace) {
+          final error = ErrorHandler.handleException(
+            e,
+            stackTrace: stackTrace,
+            correlationId: correlationId,
+            context: 'Parsing section data',
+          );
+          ErrorHandler.logError(error, context: 'getSections');
+          // Continue with other sections
+        }
+      }
+
+      // Fetch student counts with timeout (skip if takes too long)
+      for (final section in sections) {
+        try {
+          final students = await _client
+              .from('students')
+              .select('id')
+              .eq('section_id', section.id)
+              .eq('school_id', schoolId)
+              .timeout(const Duration(seconds: 1));
+          final studentCount = (students as List).length;
+          final index = sections.indexOf(section);
+          if (index >= 0) {
+            sections[index] = section.copyWith(studentCount: studentCount);
+          }
+        } catch (e) {
+          // Skip student count on timeout/error - it's optional
+          // Don't log to avoid spam
+        }
+      }
+
+      return sections;
+    } catch (e) {
+      final error = ErrorHandler.handleException(
+        e,
+        correlationId: correlationId,
+        context: 'ClassRepository.getSections',
+      );
+      ErrorHandler.logError(error, context: 'getSections');
+      return <SectionModel>[];
+    }
   }
 
   /// Get a single section by ID
   Future<SectionModel?> getSectionById(int sectionId) async {
-    final schoolId = _requireSchoolId();
-    final response = await _client
-        .from('sections')
-        .select()
-        .eq('id', sectionId)
-        .eq('school_id', schoolId)
-        .maybeSingle();
+    final correlationId = ErrorHandler.generateCorrelationId();
 
-    if (response == null) return null;
-    return SectionModel.fromMap(response);
+    return safeDbOperation(
+      operation: () async {
+        if (sectionId <= 0) {
+          throw ValidationError(
+            message: 'Invalid section ID: $sectionId',
+            userMessage: 'Invalid section identifier.',
+            field: 'sectionId',
+          );
+        }
+
+        final schoolId = validateSchoolId(
+          _schoolId,
+          correlationId: correlationId,
+        );
+
+        final response = await _client
+            .from('sections')
+            .select()
+            .eq('id', sectionId)
+            .eq('school_id', schoolId)
+            .maybeSingle();
+
+        if (response == null) {
+          return null;
+        }
+
+        return SectionModel.fromMap(response);
+      },
+      context: 'ClassRepository.getSectionById',
+      correlationId: correlationId,
+    );
   }
 
   /// Create a new section
@@ -248,21 +488,66 @@ class ClassRepository {
     int? capacity,
     bool isActive = true,
   }) async {
-    final schoolId = _requireSchoolId();
-    final response = await _client
-        .from('sections')
-        .insert({
-          'class_id': classId,
-          'school_id': schoolId,
-          'name': name,
-          'code': code,
-          'capacity': capacity,
-          'is_active': isActive,
-        })
-        .select()
-        .single();
+    final correlationId = ErrorHandler.generateCorrelationId();
 
-    return SectionModel.fromMap(response);
+    return safeDbOperation(
+      operation: () async {
+        // Input validation
+        if (classId <= 0) {
+          throw ValidationError(
+            message: 'Invalid class ID: $classId',
+            userMessage: 'Invalid class identifier.',
+            field: 'classId',
+          );
+        }
+
+        final nameError = Validation.validateRequired(name, 'name');
+        if (nameError != null) throw nameError;
+
+        final lengthError = Validation.validateLength(
+          name,
+          'name',
+          min: 1,
+          max: 50,
+        );
+        if (lengthError != null) throw lengthError;
+
+        if (capacity != null && capacity < 0) {
+          throw ValidationError.outOfRange('capacity', min: 0, max: 1000);
+        }
+
+        final schoolId = validateSchoolId(
+          _schoolId,
+          correlationId: correlationId,
+        );
+
+        // Verify class exists
+        final classExists = await getClassById(classId);
+        if (classExists == null) {
+          throw DatabaseError.notFound(
+            resource: 'Class with ID $classId',
+            correlationId: correlationId,
+          );
+        }
+
+        final response = await _client
+            .from('sections')
+            .insert({
+              'class_id': classId,
+              'school_id': schoolId,
+              'name': name.trim(),
+              'code': code?.trim(),
+              'capacity': capacity,
+              'is_active': isActive,
+            })
+            .select()
+            .single();
+
+        return SectionModel.fromMap(response);
+      },
+      context: 'ClassRepository.createSection',
+      correlationId: correlationId,
+    );
   }
 
   /// Update a section
@@ -273,57 +558,142 @@ class ClassRepository {
     int? capacity,
     bool? isActive,
   }) async {
-    final schoolId = _requireSchoolId();
-    final updates = <String, dynamic>{};
-    if (name != null) updates['name'] = name;
-    if (code != null) updates['code'] = code;
-    if (capacity != null) updates['capacity'] = capacity;
-    if (isActive != null) updates['is_active'] = isActive;
+    final correlationId = ErrorHandler.generateCorrelationId();
 
-    final response = await _client
-        .from('sections')
-        .update(updates)
-        .eq('id', id)
-        .eq('school_id', schoolId)
-        .select()
-        .single();
+    return safeDbOperation(
+      operation: () async {
+        if (id <= 0) {
+          throw ValidationError(
+            message: 'Invalid section ID: $id',
+            userMessage: 'Invalid section identifier.',
+            field: 'id',
+          );
+        }
 
-    return SectionModel.fromMap(response);
+        if (name != null) {
+          final nameError = Validation.validateRequired(name, 'name');
+          if (nameError != null) throw nameError;
+          final lengthError = Validation.validateLength(
+            name,
+            'name',
+            min: 1,
+            max: 50,
+          );
+          if (lengthError != null) throw lengthError;
+        }
+
+        if (capacity != null && capacity < 0) {
+          throw ValidationError.outOfRange('capacity', min: 0, max: 1000);
+        }
+
+        final schoolId = validateSchoolId(
+          _schoolId,
+          correlationId: correlationId,
+        );
+
+        final updates = <String, dynamic>{};
+        if (name != null) updates['name'] = name.trim();
+        if (code != null) updates['code'] = code.trim();
+        if (capacity != null) updates['capacity'] = capacity;
+        if (isActive != null) updates['is_active'] = isActive;
+
+        if (updates.isEmpty) {
+          return await getSectionById(id) ??
+              (throw DatabaseError.notFound(
+                resource: 'Section with ID $id',
+                correlationId: correlationId,
+              ));
+        }
+
+        final response = await _client
+            .from('sections')
+            .update(updates)
+            .eq('id', id)
+            .eq('school_id', schoolId)
+            .select()
+            .single();
+
+        return SectionModel.fromMap(response);
+      },
+      context: 'ClassRepository.updateSection',
+      correlationId: correlationId,
+    );
   }
 
   /// Delete a section (soft delete)
   Future<void> deleteSection(int id) async {
-    final schoolId = _requireSchoolId();
-    await _client
-        .from('sections')
-        .update({'is_active': false})
-        .eq('id', id)
-        .eq('school_id', schoolId);
+    final correlationId = ErrorHandler.generateCorrelationId();
+
+    return safeDbOperation(
+      operation: () async {
+        if (id <= 0) {
+          throw ValidationError(
+            message: 'Invalid section ID: $id',
+            userMessage: 'Invalid section identifier.',
+            field: 'id',
+          );
+        }
+
+        final schoolId = validateSchoolId(
+          _schoolId,
+          correlationId: correlationId,
+        );
+
+        await _client
+            .from('sections')
+            .update({'is_active': false})
+            .eq('id', id)
+            .eq('school_id', schoolId);
+      },
+      context: 'ClassRepository.deleteSection',
+      correlationId: correlationId,
+    );
   }
 
   /// Permanently delete a section (only if no students assigned)
   Future<void> permanentlyDeleteSection(int id) async {
-    final schoolId = _requireSchoolId();
+    final correlationId = ErrorHandler.generateCorrelationId();
 
-    // Check if section has students
-    final students = await _client
-        .from('students')
-        .select('id')
-        .eq('section_id', id)
-        .eq('school_id', schoolId)
-        .limit(1);
+    return safeDbOperation(
+      operation: () async {
+        if (id <= 0) {
+          throw ValidationError(
+            message: 'Invalid section ID: $id',
+            userMessage: 'Invalid section identifier.',
+            field: 'id',
+          );
+        }
 
-    if ((students as List).isNotEmpty) {
-      throw Exception(
-        'Cannot delete section. There are students assigned to this section.',
-      );
-    }
+        final schoolId = validateSchoolId(
+          _schoolId,
+          correlationId: correlationId,
+        );
 
-    // Delete section
-    await _client
-        .from('sections')
-        .delete()
-        .eq('id', id)
-        .eq('school_id', schoolId);
+        // Check if section has students
+        final students = await _client
+            .from('students')
+            .select('id')
+            .eq('section_id', id)
+            .eq('school_id', schoolId)
+            .limit(1);
+
+        if ((students as List).isNotEmpty) {
+          throw BusinessLogicError.invalidOperation(
+            operation: 'delete_section',
+            reason: 'Section has assigned students',
+            correlationId: correlationId,
+          );
+        }
+
+        // Delete section
+        await _client
+            .from('sections')
+            .delete()
+            .eq('id', id)
+            .eq('school_id', schoolId);
+      },
+      context: 'ClassRepository.permanentlyDeleteSection',
+      correlationId: correlationId,
+    );
   }
 }

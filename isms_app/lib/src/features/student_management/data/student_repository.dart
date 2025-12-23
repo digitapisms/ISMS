@@ -1,13 +1,12 @@
 import 'dart:typed_data';
 
-
 import '../../../core/network/database_client.dart';
 import '../../../core/network/supabase_client.dart';
 import '../domain/student.dart';
 
 class StudentRepository {
   StudentRepository({DatabaseClient? client})
-      : _client = client ?? SupabaseDatabaseClient(SupabaseManager.client);
+    : _client = client ?? SupabaseDatabaseClient(SupabaseManager.client);
 
   final DatabaseClient _client;
   String? _schoolId;
@@ -40,89 +39,105 @@ class StudentRepository {
   dynamic _filterBySchool(dynamic query, {String? override}) {
     final id = override ?? _schoolId;
     if (id == null) return query;
+    // Only call .eq() if query is still a query builder (not a List)
+    if (query is List) {
+      // Query already executed, can't filter - return as is
+      return query;
+    }
     return query.eq('school_id', id);
   }
 
   Future<List<Student>> fetchStudents() async {
     try {
-      // Try students_view first, fallback to students table if view doesn't exist
-      var query = _client.from('students_view').select();
-      query = _filterBySchool(query);
+      final schoolId = _schoolId;
+      if (schoolId == null) {
+        return [];
+      }
 
-      final response = await query.order('created_at', ascending: false);
+      // Use students table directly (students_view doesn't exist)
+      final response = await _client
+          .from('students')
+          .select()
+          .eq('school_id', schoolId)
+          .order('created_at', ascending: false)
+          .timeout(const Duration(seconds: 10));
 
       final data = response as List<dynamic>;
       return data
-          .map((row) => Student.fromMap(row as Map<String, dynamic>))
+          .map((row) {
+            try {
+              return Student.fromMap(row as Map<String, dynamic>);
+            } catch (e) {
+              // Skip invalid records
+              return null;
+            }
+          })
+          .whereType<Student>()
           .toList();
     } catch (e) {
-      // Fallback to students table if students_view doesn't exist
-      try {
-        var query = _client.from('students').select('''
-          id,
-          admission_no,
-          class_id,
-          section_id,
-          status,
-          created_at,
-          user_id
-        ''');
-        query = _filterBySchool(query);
-
-        final response = await query.order('created_at', ascending: false);
-        final data = response as List<dynamic>;
-        
-        // Map to Student objects (simplified version)
-        return data.map((row) {
-          final map = row as Map<String, dynamic>;
-          return Student(
-            id: map['id'] as String,
-            admissionNo: map['admission_no'] as String? ?? '',
-            fullName: 'Student ${map['admission_no'] ?? ''}',
-            classId: map['class_id'] as int?,
-            sectionId: map['section_id'] as int?,
-            status: map['status'] as String?,
-          );
-        }).toList();
-      } catch (e2) {
-        // If both fail, return empty list
-        return [];
-      }
+      // Return empty list on any error
+      return [];
     }
   }
 
   Future<Student?> fetchStudentById(String studentId) async {
-    var query = _client.from('students_view').select().eq('id', studentId);
-    query = _filterBySchool(query);
-    final response = await query.maybeSingle();
+    try {
+      final schoolId = _schoolId;
+      if (schoolId == null) {
+        return null;
+      }
 
-    if (response == null) return null;
-    return Student.fromMap(Map<String, dynamic>.from(response));
+      // Use students table directly
+      final response = await _client
+          .from('students')
+          .select()
+          .eq('id', studentId)
+          .eq('school_id', schoolId)
+          .maybeSingle()
+          .timeout(const Duration(seconds: 10));
+
+      if (response == null) return null;
+      return Student.fromMap(Map<String, dynamic>.from(response));
+    } catch (e) {
+      return null;
+    }
   }
 
   /// Fetch student by user_id (from users table)
   Future<Student?> fetchStudentByUserId(String userId) async {
-    // First get the user's auth_id to find the student
-    final userRow = await _client
-        .from('users')
-        .select('id, auth_id')
-        .eq('id', userId)
-        .maybeSingle();
+    try {
+      final schoolId = _schoolId;
+      if (schoolId == null) return null;
 
-    if (userRow == null) return null;
+      // First get the user's auth_id to find the student
+      final userRow = await _client
+          .from('users')
+          .select('id, auth_id')
+          .eq('id', userId)
+          .maybeSingle()
+          .timeout(const Duration(seconds: 10));
 
-    final authId = userRow['auth_id'] as String?;
-    if (authId == null) return null;
+      if (userRow == null) return null;
 
-    // Find student linked to this user
-    var query = _client.from('students').select('id').eq('user_id', userId);
-    query = _filterBySchool(query);
-    final studentRow = await query.maybeSingle();
+      final authId = userRow['auth_id'] as String?;
+      if (authId == null) return null;
 
-    if (studentRow == null) return null;
+      // Find student linked to this user
+      final studentRow = await _client
+          .from('students')
+          .select('id')
+          .eq('user_id', userId)
+          .eq('school_id', schoolId)
+          .maybeSingle()
+          .timeout(const Duration(seconds: 10));
 
-    final studentId = studentRow['id'] as String;
-    return fetchStudentById(studentId);
+      if (studentRow == null) return null;
+
+      final studentId = studentRow['id'] as String;
+      return fetchStudentById(studentId);
+    } catch (e) {
+      return null;
+    }
   }
 
   /// Fetch current student from authenticated user's auth_id
@@ -146,41 +161,62 @@ class StudentRepository {
   Future<List<Map<String, dynamic>>> fetchStudentDocuments(
     String studentId,
   ) async {
-    var query = _client
-        .from('student_documents')
-        .select()
-        .eq('student_id', studentId)
-        .order('uploaded_at', ascending: false);
-    query = _filterBySchool(query);
-    final response = await query;
+    try {
+      final schoolId = _schoolId;
+      if (schoolId == null) return [];
 
-    return List<Map<String, dynamic>>.from(response as List);
+      final response = await _client
+          .from('student_documents')
+          .select()
+          .eq('student_id', studentId)
+          .eq('school_id', schoolId)
+          .order('uploaded_at', ascending: false)
+          .timeout(const Duration(seconds: 10));
+
+      return List<Map<String, dynamic>>.from(response as List);
+    } catch (e) {
+      return [];
+    }
   }
 
   Future<List<Map<String, dynamic>>> fetchStudentFamily(
     String studentId,
   ) async {
-    var query = _client
-        .from('family_members')
-        .select()
-        .eq('student_id', studentId);
-    query = _filterBySchool(query);
-    final response = await query;
+    try {
+      final schoolId = _schoolId;
+      if (schoolId == null) return [];
 
-    return List<Map<String, dynamic>>.from(response as List);
+      final response = await _client
+          .from('family_members')
+          .select()
+          .eq('student_id', studentId)
+          .eq('school_id', schoolId)
+          .timeout(const Duration(seconds: 10));
+
+      return List<Map<String, dynamic>>.from(response as List);
+    } catch (e) {
+      return [];
+    }
   }
 
   Future<List<Map<String, dynamic>>> fetchStudentEmergencyContacts(
     String studentId,
   ) async {
-    var query = _client
-        .from('emergency_contacts')
-        .select()
-        .eq('student_id', studentId);
-    query = _filterBySchool(query);
-    final response = await query;
+    try {
+      final schoolId = _schoolId;
+      if (schoolId == null) return [];
 
-    return List<Map<String, dynamic>>.from(response as List);
+      final response = await _client
+          .from('emergency_contacts')
+          .select()
+          .eq('student_id', studentId)
+          .eq('school_id', schoolId)
+          .timeout(const Duration(seconds: 10));
+
+      return List<Map<String, dynamic>>.from(response as List);
+    } catch (e) {
+      return [];
+    }
   }
 
   Future<String> createStudent({
@@ -197,7 +233,7 @@ class StudentRepository {
     String? userId,
   }) async {
     final schoolId = _requireSchoolId();
-    
+
     // Insert into students table
     final studentData = <String, dynamic>{
       'admission_no': admissionNo,
@@ -207,12 +243,14 @@ class StudentRepository {
       if (sectionId != null) 'section_id': sectionId,
       if (userId != null) 'user_id': userId,
     };
-    
-    final studentResponse =
-        await _client.insertReturningSingle('students', studentData);
-    
+
+    final studentResponse = await _client.insertReturningSingle(
+      'students',
+      studentData,
+    );
+
     final studentId = studentResponse['id'] as String;
-    
+
     await _client.insert('student_details', {
       'student_id': studentId,
       'school_id': schoolId,
@@ -223,7 +261,7 @@ class StudentRepository {
       if (medicalInfo != null) 'medical_info': medicalInfo,
       if (avatarUrl != null && avatarUrl.isNotEmpty) 'avatar_url': avatarUrl,
     });
-    
+
     // Update avatar URL if provided (should be done after student creation)
     if (avatarUrl != null && avatarUrl.isNotEmpty) {
       // Store avatar URL in user_profiles if user exists, or create a view/column for it
@@ -253,7 +291,7 @@ class StudentRepository {
     String? avatarUrl,
   }) async {
     final schoolId = _requireSchoolId();
-    
+
     // Update students table
     final studentUpdate = <String, dynamic>{};
     if (admissionNo != null) studentUpdate['admission_no'] = admissionNo;
@@ -262,20 +300,19 @@ class StudentRepository {
     if (status != null) studentUpdate['status'] = status;
 
     if (studentUpdate.isNotEmpty) {
-      await _client.update(
-        'students',
-        studentUpdate,
-        {'id': studentId, 'school_id': schoolId},
-      );
+      await _client.update('students', studentUpdate, {
+        'id': studentId,
+        'school_id': schoolId,
+      });
     }
-    
+
     // Update user_profiles if fullName or avatarUrl changed
     final student = await _client.selectMaybeSingle(
       'students',
       columns: 'user_id',
       filters: {'id': studentId, 'school_id': schoolId},
     );
-    
+
     if (student != null) {
       final userId = student['user_id'] as String?;
       if (userId != null) {
@@ -286,7 +323,7 @@ class StudentRepository {
         if (avatarUrl != null) {
           profileUpdate['avatar_url'] = avatarUrl.isEmpty ? null : avatarUrl;
         }
-        
+
         if (profileUpdate.isNotEmpty) {
           await _client.upsert('user_profiles', {
             'user_id': userId,
@@ -304,8 +341,7 @@ class StudentRepository {
     if (bloodGroup != null) detailsUpdate['blood_group'] = bloodGroup;
     if (medicalInfo != null) detailsUpdate['medical_info'] = medicalInfo;
     if (avatarUrl != null) {
-      detailsUpdate['avatar_url'] =
-        avatarUrl.isEmpty ? null : avatarUrl;
+      detailsUpdate['avatar_url'] = avatarUrl.isEmpty ? null : avatarUrl;
     }
 
     if (detailsUpdate.isNotEmpty) {
@@ -316,11 +352,10 @@ class StudentRepository {
       );
 
       if (existing != null) {
-        await _client.update(
-          'student_details',
-          detailsUpdate,
-          {'student_id': studentId, 'school_id': schoolId},
-        );
+        await _client.update('student_details', detailsUpdate, {
+          'student_id': studentId,
+          'school_id': schoolId,
+        });
       } else {
         detailsUpdate['student_id'] = studentId;
         await _client.insert('student_details', _withSchoolId(detailsUpdate));
@@ -377,21 +412,38 @@ class StudentRepository {
   }
 
   Future<List<Map<String, dynamic>>> fetchClasses() async {
-    var query = _client.from('classes').select().order('name');
-    query = _filterBySchool(query);
-    final response = await query;
-    return List<Map<String, dynamic>>.from(response as List);
+    try {
+      final schoolId = _schoolId;
+      if (schoolId == null) return [];
+
+      final response = await _client
+          .from('classes')
+          .select()
+          .eq('school_id', schoolId)
+          .order('name')
+          .timeout(const Duration(seconds: 10));
+      return List<Map<String, dynamic>>.from(response as List);
+    } catch (e) {
+      return [];
+    }
   }
 
   Future<List<Map<String, dynamic>>> fetchSections(int classId) async {
-    var query = _client
-        .from('sections')
-        .select()
-        .eq('class_id', classId)
-        .order('name');
-    query = _filterBySchool(query);
-    final response = await query;
-    return List<Map<String, dynamic>>.from(response as List);
+    try {
+      final schoolId = _schoolId;
+      if (schoolId == null) return [];
+
+      final response = await _client
+          .from('sections')
+          .select()
+          .eq('class_id', classId)
+          .eq('school_id', schoolId)
+          .order('name')
+          .timeout(const Duration(seconds: 10));
+      return List<Map<String, dynamic>>.from(response as List);
+    } catch (e) {
+      return [];
+    }
   }
 
   Future<String> submitStudentApplication({
@@ -596,7 +648,9 @@ class StudentRepository {
     String? schoolId,
   }) async {
     // Upload file to Supabase Storage
-    await _client.storage.from('student-documents').uploadBinary(
+    await _client.storage
+        .from('student-documents')
+        .uploadBinary(
           '$studentId/$documentType/$fileName',
           Uint8List.fromList(fileBytes),
         );
@@ -620,19 +674,26 @@ class StudentRepository {
   }
 
   Future<List<Map<String, dynamic>>> fetchPendingApplications() async {
-    var query = _client
-        .from('applications')
-        .select('''
-          *,
-          classes(name, code),
-          users!applicant_user_id(email, user_profiles(full_name))
-        ''')
-        .or('status.eq.pending,status.eq.under_review')
-        .order('submitted_at', ascending: false);
-    query = _filterBySchool(query);
-    final response = await query;
+    try {
+      final schoolId = _schoolId;
+      if (schoolId == null) return [];
 
-    return List<Map<String, dynamic>>.from(response as List);
+      final response = await _client
+          .from('applications')
+          .select('''
+            *,
+            classes(name, code),
+            users!applicant_user_id(email, user_profiles(full_name))
+          ''')
+          .eq('school_id', schoolId)
+          .or('status.eq.pending,status.eq.under_review')
+          .order('submitted_at', ascending: false)
+          .timeout(const Duration(seconds: 10));
+
+      return List<Map<String, dynamic>>.from(response as List);
+    } catch (e) {
+      return [];
+    }
   }
 
   /// Bulk update application statuses - one-time solution for processing multiple reviews
@@ -663,8 +724,7 @@ class StudentRepository {
             .single();
 
         // Verify the update was successful
-        if (updateResponse != null && 
-            (updateResponse as Map<String, dynamic>)['status'] == status) {
+        if ((updateResponse)['status'] == status) {
           successCount++;
 
           // If approved, update student status
@@ -694,9 +754,8 @@ class StudentRepository {
                     .eq('id', student['id'])
                     .select()
                     .single();
-                
-                if (studentUpdateResponse == null || 
-                    (studentUpdateResponse as Map<String, dynamic>)['status'] != 'active') {
+
+                if ((studentUpdateResponse)['status'] != 'active') {
                   throw Exception('Failed to update student status to active.');
                 }
               }
@@ -708,14 +767,14 @@ class StudentRepository {
                   .eq('id', userId)
                   .select()
                   .single();
-              
-              if (userUpdateResponse == null || 
-                  (userUpdateResponse as Map<String, dynamic>)['role'] != 'student') {
+
+              if ((userUpdateResponse)['role'] != 'student') {
                 throw Exception('Failed to update user role to student.');
               }
             } catch (e) {
               // Log but don't fail the entire operation
-              errors[applicationId] = 'Approved but failed to activate student: $e';
+              errors[applicationId] =
+                  'Approved but failed to activate student: $e';
             }
           }
         } else {
@@ -768,8 +827,10 @@ class StudentRepository {
         .single();
 
     // Verify the update was successful
-    if (updateResponse == null || (updateResponse as Map<String, dynamic>)['status'] != status) {
-      throw Exception('Failed to update application status. Update may not have been committed.');
+    if ((updateResponse)['status'] != status) {
+      throw Exception(
+        'Failed to update application status. Update may not have been committed.',
+      );
     }
 
     // If approved, update student status to active
@@ -798,10 +859,9 @@ class StudentRepository {
             .eq('id', student['id'])
             .select()
             .single();
-        
+
         // Verify student status update
-        if (studentUpdateResponse == null || 
-            (studentUpdateResponse as Map<String, dynamic>)['status'] != 'active') {
+        if ((studentUpdateResponse)['status'] != 'active') {
           throw Exception('Failed to update student status to active.');
         }
       }
@@ -813,10 +873,9 @@ class StudentRepository {
           .eq('id', userId)
           .select()
           .single();
-      
+
       // Verify user role update
-      if (userUpdateResponse == null || 
-          (userUpdateResponse as Map<String, dynamic>)['role'] != 'student') {
+      if ((userUpdateResponse)['role'] != 'student') {
         throw Exception('Failed to update user role to student.');
       }
     }
@@ -853,51 +912,52 @@ class StudentRepository {
           )
         ''')
         .eq('id', applicationId);
-    query = _filterBySchool(query);
-    final response = await query.maybeSingle();
+    final schoolId = _schoolId;
+    if (schoolId == null) return null;
+
+    final response = await query
+        .eq('school_id', schoolId)
+        .maybeSingle()
+        .timeout(const Duration(seconds: 10));
 
     if (response == null) return null;
     final applicationSchoolId = response['school_id'] as String?;
 
     // Get student details
     final userId = (response['users'] as Map)['id'] as String;
-    var studentQuery = _client
+    final student = await _client
         .from('students')
         .select('id')
-        .eq('user_id', userId);
-    studentQuery = _filterBySchool(studentQuery, override: applicationSchoolId);
-    final student = await studentQuery.maybeSingle();
+        .eq('user_id', userId)
+        .eq('school_id', applicationSchoolId ?? schoolId)
+        .maybeSingle()
+        .timeout(const Duration(seconds: 10));
 
     if (student != null) {
       final studentId = student['id'] as String;
+      final effectiveSchoolId = applicationSchoolId ?? schoolId;
 
-      var detailsQuery = _client
+      final studentDetails = await _client
           .from('student_details')
           .select()
-          .eq('student_id', studentId);
-      detailsQuery = _filterBySchool(
-        detailsQuery,
-        override: applicationSchoolId,
-      );
-      final studentDetails = await detailsQuery.maybeSingle();
+          .eq('student_id', studentId)
+          .eq('school_id', effectiveSchoolId)
+          .maybeSingle()
+          .timeout(const Duration(seconds: 10));
 
-      var familyQuery = _client
+      final family = await _client
           .from('family_members')
           .select()
-          .eq('student_id', studentId);
-      familyQuery = _filterBySchool(familyQuery, override: applicationSchoolId);
+          .eq('student_id', studentId)
+          .eq('school_id', effectiveSchoolId)
+          .timeout(const Duration(seconds: 10));
 
-      var emergencyQuery = _client
+      final emergency = await _client
           .from('emergency_contacts')
           .select()
-          .eq('student_id', studentId);
-      emergencyQuery = _filterBySchool(
-        emergencyQuery,
-        override: applicationSchoolId,
-      );
-
-      final family = await familyQuery;
-      final emergency = await emergencyQuery;
+          .eq('student_id', studentId)
+          .eq('school_id', effectiveSchoolId)
+          .timeout(const Duration(seconds: 10));
 
       return {
         ...response,
@@ -914,14 +974,22 @@ class StudentRepository {
   Future<Map<String, dynamic>?> fetchApplicationFee(
     String applicationId,
   ) async {
-    var query = _client
-        .from('application_fees')
-        .select()
-        .eq('application_id', applicationId);
-    query = _filterBySchool(query);
-    final response = await query.maybeSingle();
-    if (response == null) return null;
-    return Map<String, dynamic>.from(response);
+    try {
+      final schoolId = _schoolId;
+      if (schoolId == null) return null;
+
+      final response = await _client
+          .from('application_fees')
+          .select()
+          .eq('application_id', applicationId)
+          .eq('school_id', schoolId)
+          .maybeSingle()
+          .timeout(const Duration(seconds: 10));
+      if (response == null) return null;
+      return Map<String, dynamic>.from(response);
+    } catch (e) {
+      return null;
+    }
   }
 
   Future<void> createApplicationFee({
@@ -944,18 +1012,23 @@ class StudentRepository {
     required String status,
     String? transactionId,
   }) async {
-    var query = _client
-        .from('application_fees')
-        .update({
-          'payment_status': status,
-          'payment_date': status == 'paid'
-              ? DateTime.now().toIso8601String()
-              : null,
-          'transaction_id': transactionId,
-        })
-        .eq('application_id', applicationId);
-    query = _filterBySchool(query);
-    await query;
+    try {
+      final schoolId = _requireSchoolId();
+      await _client
+          .from('application_fees')
+          .update({
+            'payment_status': status,
+            'payment_date': status == 'paid'
+                ? DateTime.now().toIso8601String()
+                : null,
+            'transaction_id': transactionId,
+          })
+          .eq('application_id', applicationId)
+          .eq('school_id', schoolId)
+          .timeout(const Duration(seconds: 10));
+    } catch (e) {
+      // Ignore errors
+    }
   }
 
   // Update Application
@@ -1053,32 +1126,49 @@ class StudentRepository {
     int? sectionId,
     String? status,
   }) async {
-    var queryBuilder = _client.from('students_view').select();
-    queryBuilder = _filterBySchool(queryBuilder);
+    try {
+      final schoolId = _schoolId;
+      if (schoolId == null) {
+        return [];
+      }
 
-    if (query != null && query.isNotEmpty) {
-      queryBuilder = queryBuilder.or(
-        'full_name.ilike.%$query%,admission_no.ilike.%$query%',
-      );
+      // Use students table directly (students_view doesn't exist)
+      var queryBuilder = _client.from('students').select();
+      queryBuilder = queryBuilder.eq('school_id', schoolId);
+
+      if (query != null && query.isNotEmpty) {
+        queryBuilder = queryBuilder.or('admission_no.ilike.%$query%');
+      }
+
+      if (classId != null) {
+        queryBuilder = queryBuilder.eq('class_id', classId);
+      }
+
+      if (sectionId != null) {
+        queryBuilder = queryBuilder.eq('section_id', sectionId);
+      }
+
+      if (status != null) {
+        queryBuilder = queryBuilder.eq('status', status);
+      }
+
+      final response = await queryBuilder
+          .order('created_at', ascending: false)
+          .timeout(const Duration(seconds: 10));
+      final data = response as List<dynamic>;
+      return data
+          .map((row) {
+            try {
+              return Student.fromMap(row as Map<String, dynamic>);
+            } catch (e) {
+              return null;
+            }
+          })
+          .whereType<Student>()
+          .toList();
+    } catch (e) {
+      return [];
     }
-
-    if (classId != null) {
-      queryBuilder = queryBuilder.eq('class_id', classId);
-    }
-
-    if (sectionId != null) {
-      queryBuilder = queryBuilder.eq('section_id', sectionId);
-    }
-
-    if (status != null) {
-      queryBuilder = queryBuilder.eq('status', status);
-    }
-
-    final response = await queryBuilder.order('created_at', ascending: false);
-    final data = response as List<dynamic>;
-    return data
-        .map((row) => Student.fromMap(row as Map<String, dynamic>))
-        .toList();
   }
 
   // Bulk Import

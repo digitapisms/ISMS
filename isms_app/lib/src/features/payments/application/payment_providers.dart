@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../school_registration/application/school_providers.dart';
+import '../../../core/errors/app_error.dart';
+import '../../../core/errors/error_handler.dart';
+import '../../../core/errors/provider_helpers.dart';
 import '../data/payments_repository.dart';
 import '../domain/cash_fee_receipt.dart';
 import '../domain/payment_account.dart';
@@ -16,130 +18,162 @@ final paymentsRepositoryProvider = Provider<PaymentsRepository>((ref) {
 final paymentProvidersProvider = FutureProvider<List<PaymentProvider>>((
   ref,
 ) async {
-  final repo = ref.read(paymentsRepositoryProvider);
-  return repo.fetchProviders();
+  final correlationId = ErrorHandler.generateCorrelationId();
+  
+  try {
+    final repo = ref.read(paymentsRepositoryProvider);
+    return await repo.fetchProviders().timeout(
+      const Duration(seconds: 10),
+      onTimeout: () => <PaymentProvider>[],
+    );
+  } catch (e) {
+    final error = ErrorHandler.handleException(
+      e,
+      correlationId: correlationId,
+      context: 'PaymentProvidersProvider',
+    );
+    ErrorHandler.logError(error);
+    return <PaymentProvider>[];
+  }
 });
 
 final schoolPaymentAccountsProvider =
     FutureProvider.autoDispose<List<PaymentAccount>>((ref) async {
-      final school = ref.watch(currentSchoolProvider);
-      if (school == null) return const [];
-      final repo = ref.read(paymentsRepositoryProvider);
-      ref.keepAlive();
-      return repo.fetchAccounts(school.id);
+      return safeProviderOperation<List<PaymentAccount>>(
+        ref: ref,
+        operation: (schoolId) async {
+          final repo = ref.read(paymentsRepositoryProvider);
+          return await repo.fetchAccounts(schoolId).timeout(
+            const Duration(seconds: 10),
+          );
+        },
+        onError: () => <PaymentAccount>[],
+        context: 'SchoolPaymentAccountsProvider',
+      );
     });
 
 final paymentTransactionsProvider =
     FutureProvider.autoDispose<List<PaymentTransaction>>((ref) async {
-      final school = ref.watch(currentSchoolProvider);
-      if (school == null) return const [];
-      final repo = ref.read(paymentsRepositoryProvider);
-      return repo.fetchTransactions(schoolId: school.id);
+      return safeProviderOperation<List<PaymentTransaction>>(
+        ref: ref,
+        operation: (schoolId) async {
+          final repo = ref.read(paymentsRepositoryProvider);
+          return await repo.fetchTransactions(schoolId: schoolId)
+              .timeout(const Duration(seconds: 10));
+        },
+        onError: () => <PaymentTransaction>[],
+        context: 'PaymentTransactionsProvider',
+      );
     });
 
 final filteredPaymentTransactionsProvider = FutureProvider.autoDispose
     .family<List<PaymentTransaction>, PaymentFilters>((ref, filters) async {
-      final school = ref.watch(currentSchoolProvider);
-      if (school == null) return const [];
-      final repo = ref.read(paymentsRepositoryProvider);
-      final transactions = await repo.fetchTransactions(schoolId: school.id);
+      return safeProviderOperation<List<PaymentTransaction>>(
+        ref: ref,
+        operation: (schoolId) async {
+          final repo = ref.read(paymentsRepositoryProvider);
+          final transactions = await repo.fetchTransactions(schoolId: schoolId)
+              .timeout(const Duration(seconds: 10));
 
-      return transactions.where((transaction) {
-        // Filter by status
-        if (filters.status != null &&
-            transaction.status.toLowerCase() != filters.status!.toLowerCase()) {
-          return false;
-        }
+          return transactions.where((transaction) {
+            // Filter by status
+            if (filters.status != null &&
+                transaction.status.toLowerCase() != filters.status!.toLowerCase()) {
+              return false;
+            }
 
-        // Filter by date range
-        if (filters.startDate != null &&
-            transaction.initiatedAt != null &&
-            transaction.initiatedAt!.isBefore(filters.startDate!)) {
-          return false;
-        }
+            // Filter by date range
+            if (filters.startDate != null &&
+                transaction.initiatedAt != null &&
+                transaction.initiatedAt!.isBefore(filters.startDate!)) {
+              return false;
+            }
 
-        if (filters.endDate != null &&
-            transaction.initiatedAt != null &&
-            transaction.initiatedAt!.isAfter(filters.endDate!)) {
-          return false;
-        }
+            if (filters.endDate != null &&
+                transaction.initiatedAt != null &&
+                transaction.initiatedAt!.isAfter(filters.endDate!)) {
+              return false;
+            }
 
-        // Filter by amount range
-        if (filters.minAmount != null &&
-            transaction.amount < filters.minAmount!) {
-          return false;
-        }
+            // Filter by amount range
+            if (filters.minAmount != null &&
+                transaction.amount < filters.minAmount!) {
+              return false;
+            }
 
-        if (filters.maxAmount != null &&
-            transaction.amount > filters.maxAmount!) {
-          return false;
-        }
+            if (filters.maxAmount != null &&
+                transaction.amount > filters.maxAmount!) {
+              return false;
+            }
 
-        // Filter by payment method
-        // TODO: PaymentTransaction doesn't have paymentMethod property
-        // if (filters.paymentMethod != null &&
-        //     transaction.paymentMethod != filters.paymentMethod) {
-        //   return false;
-        // }
-
-        return true;
-      }).toList();
+            return true;
+          }).toList();
+        },
+        onError: () => <PaymentTransaction>[],
+        context: 'FilteredPaymentTransactionsProvider',
+      );
     });
 
 final paymentSearchProvider = FutureProvider.autoDispose
     .family<List<PaymentTransaction>, String>((ref, query) async {
-      final school = ref.watch(currentSchoolProvider);
-      if (school == null) return const [];
-      final repo = ref.read(paymentsRepositoryProvider);
-      final transactions = await repo.fetchTransactions(schoolId: school.id);
+      return safeProviderOperation<List<PaymentTransaction>>(
+        ref: ref,
+        operation: (schoolId) async {
+          final repo = ref.read(paymentsRepositoryProvider);
+          final transactions = await repo.fetchTransactions(schoolId: schoolId)
+              .timeout(const Duration(seconds: 10));
 
-      if (query.isEmpty) return transactions;
+          if (query.isEmpty) return transactions;
 
-      final lowercaseQuery = query.toLowerCase();
+          final lowercaseQuery = query.toLowerCase();
 
-      return transactions.where((transaction) {
-        // Search by payer name
-        if (transaction.payerName?.toLowerCase().contains(lowercaseQuery) ==
-            true) {
-          return true;
-        }
+          return transactions.where((transaction) {
+            // Search by payer name
+            if (transaction.payerName?.toLowerCase().contains(lowercaseQuery) ==
+                true) {
+              return true;
+            }
 
-        // Search by reference code
-        if (transaction.referenceCode?.toLowerCase().contains(lowercaseQuery) ==
-            true) {
-          return true;
-        }
+            // Search by reference code
+            if (transaction.referenceCode?.toLowerCase().contains(lowercaseQuery) ==
+                true) {
+              return true;
+            }
 
-        // Search by external reference
-        if (transaction.externalReference?.toLowerCase().contains(
-              lowercaseQuery,
-            ) ==
-            true) {
-          return true;
-        }
+            // Search by external reference
+            if (transaction.externalReference?.toLowerCase().contains(
+                  lowercaseQuery,
+                ) ==
+                true) {
+              return true;
+            }
 
-        // Search by amount
-        if (transaction.amount.toString().contains(lowercaseQuery)) {
-          return true;
-        }
+            // Search by amount
+            if (transaction.amount.toString().contains(lowercaseQuery)) {
+              return true;
+            }
 
-        // Search by payment method - TODO: PaymentTransaction doesn't have paymentMethod property
-        // if (transaction.paymentMethod?.toLowerCase().contains(lowercaseQuery) ==
-        //     true) {
-        //   return true;
-        // }
-
-        return false;
-      }).toList();
+            return false;
+          }).toList();
+        },
+        onError: () => <PaymentTransaction>[],
+        context: 'PaymentSearchProvider',
+      );
     });
 
 final cashReceiptsProvider = FutureProvider.autoDispose<List<CashFeeReceipt>>((
   ref,
 ) async {
-  final school = ref.watch(currentSchoolProvider);
-  if (school == null) return const [];
-  final repo = ref.read(paymentsRepositoryProvider);
-  return repo.fetchCashReceipts(schoolId: school.id);
+  return safeProviderOperation<List<CashFeeReceipt>>(
+    ref: ref,
+    operation: (schoolId) async {
+      final repo = ref.read(paymentsRepositoryProvider);
+      return await repo.fetchCashReceipts(schoolId: schoolId)
+          .timeout(const Duration(seconds: 10));
+    },
+    onError: () => <CashFeeReceipt>[],
+    context: 'CashReceiptsProvider',
+  );
 });
 
 class CashReceiptRequest {
@@ -164,21 +198,34 @@ final addCashReceiptProvider = FutureProvider.family<void, CashReceiptRequest>((
   ref,
   request,
 ) async {
-  final school = ref.read(currentSchoolProvider);
-  if (school == null) {
-    throw Exception('No school context available.');
+  final correlationId = ErrorHandler.generateCorrelationId();
+  
+  try {
+    final schoolId = await getSchoolIdSafely(ref);
+    if (schoolId == null) {
+      throw ValidationError.missingField('school_id');
+    }
+    
+    final repo = ref.read(paymentsRepositoryProvider);
+    await repo.addCashReceipt(
+      schoolId: schoolId,
+      payerName: request.payerName,
+      amount: request.amount,
+      paymentDate: request.paymentDate,
+      receiptNumber: request.receiptNumber,
+      notes: request.notes,
+      studentId: request.studentId,
+    ).timeout(const Duration(seconds: 10));
+    ref.invalidate(cashReceiptsProvider);
+  } catch (e) {
+    final error = ErrorHandler.handleException(
+      e,
+      correlationId: correlationId,
+      context: 'AddCashReceiptProvider',
+    );
+    ErrorHandler.logError(error);
+    rethrow;
   }
-  final repo = ref.read(paymentsRepositoryProvider);
-  await repo.addCashReceipt(
-    schoolId: school.id,
-    payerName: request.payerName,
-    amount: request.amount,
-    paymentDate: request.paymentDate,
-    receiptNumber: request.receiptNumber,
-    notes: request.notes,
-    studentId: request.studentId,
-  );
-  ref.invalidate(cashReceiptsProvider);
 });
 
 class PaymentAccountRequest {
@@ -195,19 +242,31 @@ class PaymentAccountRequest {
 
 final paymentAccountSubmitProvider =
     FutureProvider.family<void, PaymentAccountRequest>((ref, request) async {
-      final school = ref.read(currentSchoolProvider);
-      if (school == null) {
-        throw Exception('No school context available.');
-      }
+      final correlationId = ErrorHandler.generateCorrelationId();
+      
+      try {
+        final schoolId = await getSchoolIdSafely(ref);
+        if (schoolId == null) {
+          throw ValidationError.missingField('school_id');
+        }
 
-      final repo = ref.read(paymentsRepositoryProvider);
-      await repo.upsertAccount(
-        schoolId: school.id,
-        providerKey: request.providerKey,
-        credentials: request.fields,
-        accountLabel: request.accountLabel,
-      );
-      ref.invalidate(schoolPaymentAccountsProvider);
+        final repo = ref.read(paymentsRepositoryProvider);
+        await repo.upsertAccount(
+          schoolId: schoolId,
+          providerKey: request.providerKey,
+          credentials: request.fields,
+          accountLabel: request.accountLabel,
+        ).timeout(const Duration(seconds: 10));
+        ref.invalidate(schoolPaymentAccountsProvider);
+      } catch (e) {
+        final error = ErrorHandler.handleException(
+          e,
+          correlationId: correlationId,
+          context: 'PaymentAccountSubmitProvider',
+        );
+        ErrorHandler.logError(error);
+        rethrow;
+      }
     });
 
 /// Payment processing request model
@@ -237,33 +296,57 @@ final processPaymentProvider =
       ref,
       request,
     ) async {
-      final school = ref.read(currentSchoolProvider);
-      if (school == null) {
-        throw Exception('No school context available.');
-      }
+      final correlationId = ErrorHandler.generateCorrelationId();
+      
+      try {
+        final schoolId = await getSchoolIdSafely(ref);
+        if (schoolId == null) {
+          throw ValidationError.missingField('school_id');
+        }
 
-      final repo = ref.read(paymentsRepositoryProvider);
-      return repo.processPayment(
-        schoolId: school.id,
-        amount: request.amount,
-        currency: request.currency,
-        providerKey: request.providerKey,
-        paymentData: request.paymentData,
-        payerName: request.payerName,
-        payerEmail: request.payerEmail,
-        payerPhone: request.payerPhone,
-      );
+        final repo = ref.read(paymentsRepositoryProvider);
+        return await repo.processPayment(
+          schoolId: schoolId,
+          amount: request.amount,
+          currency: request.currency,
+          providerKey: request.providerKey,
+          paymentData: request.paymentData,
+          payerName: request.payerName,
+          payerEmail: request.payerEmail,
+          payerPhone: request.payerPhone,
+        ).timeout(const Duration(seconds: 30));
+      } catch (e) {
+        final error = ErrorHandler.handleException(
+          e,
+          correlationId: correlationId,
+          context: 'ProcessPaymentProvider',
+        );
+        ErrorHandler.logError(error);
+        rethrow;
+      }
     });
 
 /// Provider for confirming payment completion
 final confirmPaymentProvider =
     FutureProvider.family<void, Map<String, dynamic>>((ref, request) async {
-      final repo = ref.read(paymentsRepositoryProvider);
-      await repo.confirmPayment(
-        transactionId: request['transaction_id'],
-        paymentMethodId: request['payment_method_id'],
-        confirmationData: request['confirmation_data'],
-      );
+      final correlationId = ErrorHandler.generateCorrelationId();
+      
+      try {
+        final repo = ref.read(paymentsRepositoryProvider);
+        await repo.confirmPayment(
+          transactionId: request['transaction_id'],
+          paymentMethodId: request['payment_method_id'],
+          confirmationData: request['confirmation_data'],
+        ).timeout(const Duration(seconds: 10));
+      } catch (e) {
+        final error = ErrorHandler.handleException(
+          e,
+          correlationId: correlationId,
+          context: 'ConfirmPaymentProvider',
+        );
+        ErrorHandler.logError(error);
+        rethrow;
+      }
     });
 
 /// Provider for checking payment gateway configuration
@@ -272,12 +355,24 @@ final paymentGatewayConfigProvider =
       ref,
       providerKey,
     ) async {
-      final providerType = PaymentProviderType.values.firstWhere(
-        (type) => type.name == providerKey,
-        orElse: () => PaymentProviderType.cash,
-      );
+      final correlationId = ErrorHandler.generateCorrelationId();
+      
+      try {
+        final providerType = PaymentProviderType.values.firstWhere(
+          (type) => type.name == providerKey,
+          orElse: () => PaymentProviderType.cash,
+        );
 
-      return PaymentGatewayConfig.fromEnv(providerType);
+        return PaymentGatewayConfig.fromEnv(providerType);
+      } catch (e) {
+        final error = ErrorHandler.handleException(
+          e,
+          correlationId: correlationId,
+          context: 'PaymentGatewayConfigProvider',
+        );
+        ErrorHandler.logError(error);
+        rethrow;
+      }
     });
 
 /// Provider for payment gateway service

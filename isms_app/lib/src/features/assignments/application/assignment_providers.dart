@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/errors/error_handler.dart';
+import '../../../core/errors/provider_helpers.dart';
 import '../../school_registration/application/school_providers.dart';
 import '../data/assignment_repository.dart';
 import '../domain/assignment.dart';
@@ -20,26 +22,47 @@ final assignmentRepositoryProvider = Provider<AssignmentRepository>((ref) {
 // ============================================================
 
 final assignmentsProvider = FutureProvider<List<Assignment>>((ref) async {
-  final school = ref.watch(currentSchoolProvider);
-  if (school == null) return [];
-  final repo = ref.read(assignmentRepositoryProvider);
-  return repo.fetchAssignments(schoolId: school.id, isPublished: true);
+  return safeProviderOperation<List<Assignment>>(
+    ref: ref,
+    operation: (schoolId) async {
+      final repo = ref.read(assignmentRepositoryProvider);
+      return await repo
+          .fetchAssignments(schoolId: schoolId, isPublished: true)
+          .timeout(const Duration(seconds: 10));
+    },
+    onError: () => <Assignment>[],
+    context: 'AssignmentsProvider',
+  );
 });
 
 final assignmentsByTeacherProvider =
     FutureProvider.family<List<Assignment>, String>((ref, teacherId) async {
-      final school = ref.watch(currentSchoolProvider);
-      if (school == null) return [];
-      final repo = ref.read(assignmentRepositoryProvider);
-      return repo.fetchAssignments(schoolId: school.id, teacherId: teacherId);
+      return safeProviderOperation<List<Assignment>>(
+        ref: ref,
+        operation: (schoolId) async {
+          final repo = ref.read(assignmentRepositoryProvider);
+          return await repo
+              .fetchAssignments(schoolId: schoolId, teacherId: teacherId)
+              .timeout(const Duration(seconds: 10));
+        },
+        onError: () => <Assignment>[],
+        context: 'AssignmentsByTeacherProvider',
+      );
     });
 
 final assignmentsByClassProvider = FutureProvider.family<List<Assignment>, int>(
   (ref, classId) async {
-    final school = ref.watch(currentSchoolProvider);
-    if (school == null) return [];
-    final repo = ref.read(assignmentRepositoryProvider);
-    return repo.fetchAssignments(schoolId: school.id, classId: classId);
+    return safeProviderOperation<List<Assignment>>(
+      ref: ref,
+      operation: (schoolId) async {
+        final repo = ref.read(assignmentRepositoryProvider);
+        return await repo
+            .fetchAssignments(schoolId: schoolId, classId: classId)
+            .timeout(const Duration(seconds: 10));
+      },
+      onError: () => <Assignment>[],
+      context: 'AssignmentsByClassProvider',
+    );
   },
 );
 
@@ -47,8 +70,20 @@ final assignmentProvider = FutureProvider.family<Assignment, String>((
   ref,
   assignmentId,
 ) async {
-  final assignments = await ref.read(assignmentsProvider.future);
-  return assignments.firstWhere((a) => a.id == assignmentId);
+  final correlationId = ErrorHandler.generateCorrelationId();
+
+  try {
+    final assignments = await ref.read(assignmentsProvider.future);
+    return assignments.firstWhere((a) => a.id == assignmentId);
+  } catch (e) {
+    final error = ErrorHandler.handleException(
+      e,
+      correlationId: correlationId,
+      context: 'AssignmentProvider',
+    );
+    ErrorHandler.logError(error);
+    rethrow;
+  }
 });
 
 // ============================================================
@@ -60,12 +95,16 @@ final submissionsByAssignmentProvider =
       ref,
       assignmentId,
     ) async {
-      final school = ref.watch(currentSchoolProvider);
-      if (school == null) return [];
-      final repo = ref.read(assignmentRepositoryProvider);
-      return repo.fetchSubmissions(
-        schoolId: school.id,
-        assignmentId: assignmentId,
+      return safeProviderOperation<List<AssignmentSubmission>>(
+        ref: ref,
+        operation: (schoolId) async {
+          final repo = ref.read(assignmentRepositoryProvider);
+          return await repo
+              .fetchSubmissions(schoolId: schoolId, assignmentId: assignmentId)
+              .timeout(const Duration(seconds: 10));
+        },
+        onError: () => <AssignmentSubmission>[],
+        context: 'SubmissionsByAssignmentProvider',
       );
     });
 
@@ -74,23 +113,37 @@ final submissionsByStudentProvider =
       ref,
       studentId,
     ) async {
-      final school = ref.watch(currentSchoolProvider);
-      if (school == null) return [];
-      final repo = ref.read(assignmentRepositoryProvider);
-      return repo.fetchSubmissions(schoolId: school.id, studentId: studentId);
+      return safeProviderOperation<List<AssignmentSubmission>>(
+        ref: ref,
+        operation: (schoolId) async {
+          final repo = ref.read(assignmentRepositoryProvider);
+          return await repo
+              .fetchSubmissions(schoolId: schoolId, studentId: studentId)
+              .timeout(const Duration(seconds: 10));
+        },
+        onError: () => <AssignmentSubmission>[],
+        context: 'SubmissionsByStudentProvider',
+      );
     });
 
 final submissionProvider = FutureProvider.family<AssignmentSubmission?, String>(
   (ref, submissionId) async {
-    final school = ref.watch(currentSchoolProvider);
-    if (school == null) return null;
-    final repo = ref.read(assignmentRepositoryProvider);
-    final submissions = await repo.fetchSubmissions(schoolId: school.id);
-    try {
-      return submissions.firstWhere((s) => s.id == submissionId);
-    } catch (e) {
-      return null;
-    }
+    return safeProviderOperation<AssignmentSubmission?>(
+      ref: ref,
+      operation: (schoolId) async {
+        final repo = ref.read(assignmentRepositoryProvider);
+        final submissions = await repo
+            .fetchSubmissions(schoolId: schoolId)
+            .timeout(const Duration(seconds: 10));
+        try {
+          return submissions.firstWhere((s) => s.id == submissionId);
+        } catch (e) {
+          return null;
+        }
+      },
+      onError: () => null,
+      context: 'SubmissionProvider',
+    );
   },
 );
 
@@ -98,30 +151,38 @@ final submissionProvider = FutureProvider.family<AssignmentSubmission?, String>(
 // ASSIGNMENT GRADES
 // ============================================================
 
-final gradesByAssignmentProvider =
+final assignmentGradesProvider =
     FutureProvider.family<List<AssignmentGrade>, String>((
       ref,
       assignmentId,
     ) async {
-      final school = ref.watch(currentSchoolProvider);
-      if (school == null) return [];
-      final repo = ref.read(assignmentRepositoryProvider);
-      return repo.fetchGrades(schoolId: school.id, assignmentId: assignmentId);
+      return safeProviderOperation<List<AssignmentGrade>>(
+        ref: ref,
+        operation: (schoolId) async {
+          final repo = ref.read(assignmentRepositoryProvider);
+          return await repo
+              .fetchGrades(schoolId: schoolId, assignmentId: assignmentId)
+              .timeout(const Duration(seconds: 10));
+        },
+        onError: () => <AssignmentGrade>[],
+        context: 'AssignmentGradesProvider',
+      );
     });
 
-final gradesByStudentProvider =
+final studentAssignmentGradesProvider =
     FutureProvider.family<List<AssignmentGrade>, String>((
       ref,
       studentId,
     ) async {
-      final school = ref.watch(currentSchoolProvider);
-      if (school == null) return [];
-      final repo = ref.read(assignmentRepositoryProvider);
-      return repo.fetchGrades(schoolId: school.id, studentId: studentId);
-    });
-
-final gradeForSubmissionProvider =
-    FutureProvider.family<AssignmentGrade?, String>((ref, submissionId) async {
-      final repo = ref.read(assignmentRepositoryProvider);
-      return repo.getGradeForSubmission(submissionId);
+      return safeProviderOperation<List<AssignmentGrade>>(
+        ref: ref,
+        operation: (schoolId) async {
+          final repo = ref.read(assignmentRepositoryProvider);
+          return await repo
+              .fetchGrades(schoolId: schoolId, studentId: studentId)
+              .timeout(const Duration(seconds: 10));
+        },
+        onError: () => <AssignmentGrade>[],
+        context: 'StudentAssignmentGradesProvider',
+      );
     });

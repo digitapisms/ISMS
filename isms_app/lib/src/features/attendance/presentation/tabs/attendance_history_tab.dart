@@ -256,7 +256,7 @@ class _ClassSelector extends ConsumerWidget {
           return const Text('No classes available');
         }
         return DropdownButtonFormField<int>(
-          value: selectedClassId,
+          initialValue: selectedClassId,
           decoration: const InputDecoration(
             labelText: 'Class (Optional)',
             border: OutlineInputBorder(),

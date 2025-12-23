@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../features/school_registration/application/school_providers.dart';
-import '../../features/subscription/application/subscription_providers.dart';
 import 'feature_checker.dart';
 import 'upgrade_prompt_dialog.dart';
 
@@ -27,13 +26,14 @@ class FeatureGuard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final school = ref.watch(currentSchoolProvider);
     final planName = school?.subscriptionPlan ?? 'free';
-    
-    final subscriptionRepo = ref.read(subscriptionRepositoryProvider);
+
+    // IMPORTANT: do NOT create new providers inside build().
+    // Use a stable family provider so this doesn't reset to loading forever.
     final featureCheckAsync = ref.watch(
-      FutureProvider((ref) async {
-        final checker = FeatureChecker(subscriptionRepo, school);
-        return checker.checkFeature(featureKey, currentUsage: currentUsage);
-      }),
+      featureCheckWithUsageProvider((
+        featureKey: featureKey,
+        currentUsage: currentUsage,
+      )),
     );
 
     return featureCheckAsync.when(
@@ -96,9 +96,9 @@ class _FeatureRestrictedWidget extends ConsumerWidget {
           const SizedBox(height: 16),
           Text(
             'Feature Not Available',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 8),
           Text(
@@ -146,22 +146,18 @@ class FeatureProtectedButton extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final school = ref.watch(currentSchoolProvider);
-    final subscriptionRepo = ref.read(subscriptionRepositoryProvider);
-    
+
     final featureCheckAsync = ref.watch(
-      FutureProvider((ref) async {
-        final checker = FeatureChecker(subscriptionRepo, school);
-        return checker.checkFeature(featureKey, currentUsage: currentUsage);
-      }),
+      featureCheckWithUsageProvider((
+        featureKey: featureKey,
+        currentUsage: currentUsage,
+      )),
     );
 
     return featureCheckAsync.when(
       data: (result) {
         if (result.canUse) {
-          return Tooltip(
-            message: tooltip ?? '',
-            child: child,
-          );
+          return Tooltip(message: tooltip ?? '', child: child);
         }
 
         // Disabled button with upgrade prompt
@@ -177,18 +173,12 @@ class FeatureProtectedButton extends ConsumerWidget {
                   currentPlan: school?.subscriptionPlan ?? 'free',
                 );
               }
-              return Opacity(
-                opacity: 0.5,
-                child: child,
-              );
+              return Opacity(opacity: 0.5, child: child);
             },
           ),
         );
       },
-      loading: () => Opacity(
-        opacity: 0.5,
-        child: child,
-      ),
+      loading: () => Opacity(opacity: 0.5, child: child),
       error: (_, __) => child, // Fail open
     );
   }
@@ -266,4 +256,3 @@ class _DisabledButtonWithUpgrade extends StatelessWidget {
     return originalButton;
   }
 }
-

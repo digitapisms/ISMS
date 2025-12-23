@@ -9,8 +9,8 @@ import '../domain/section_model.dart';
 
 final classRepositoryProvider = Provider<ClassRepository>((ref) {
   final repo = ClassRepository();
-  final tenantSchool = ref.watch(tenantContextProvider);
-  final authUser = ref.watch(authStateProvider);
+  final tenantSchool = ref.read(tenantContextProvider);
+  final authUser = ref.read(authStateProvider);
   final schoolId = tenantSchool?.id ?? authUser?.schoolId;
   if (schoolId != null) {
     repo.setSchoolId(schoolId);
@@ -20,15 +20,26 @@ final classRepositoryProvider = Provider<ClassRepository>((ref) {
 
 final classesProvider = FutureProvider<List<ClassModel>>((ref) async {
   try {
-    // Watch school context to refresh when it changes
-    ref.watch(tenantContextProvider);
-    ref.watch(authStateProvider);
-
+    // Get school ID immediately - no waiting
+    final tenantSchool = ref.read(tenantContextProvider);
+    final authUser = ref.read(authStateProvider);
+    final schoolId = tenantSchool?.id ?? authUser?.schoolId;
+    
+    if (schoolId == null) {
+      return <ClassModel>[];
+    }
+    
+    // Set school ID and get classes
     final repo = ref.read(classRepositoryProvider);
-    return await repo.getClasses(activeOnly: true);
+    repo.setSchoolId(schoolId);
+    
+    return await repo.getClasses(activeOnly: true).timeout(
+      const Duration(seconds: 10),
+      onTimeout: () => <ClassModel>[],
+    );
   } catch (e) {
-    debugPrint('Error fetching classes: $e');
-    return const [];
+    debugPrint('ClassesProvider error: $e');
+    return <ClassModel>[];
   }
 });
 
@@ -38,7 +49,9 @@ final classProvider = FutureProvider.family<ClassModel?, int>((
 ) async {
   try {
     final repo = ref.read(classRepositoryProvider);
-    return await repo.getClassById(classId);
+    return await repo
+        .getClassById(classId)
+        .timeout(const Duration(seconds: 5), onTimeout: () => null);
   } catch (e) {
     debugPrint('Error fetching class: $e');
     return null;
@@ -49,12 +62,32 @@ final sectionsProvider = FutureProvider.family<List<SectionModel>, int>((
   ref,
   classId,
 ) async {
+  // Validate classId immediately
+  if (classId <= 0) {
+    return <SectionModel>[];
+  }
+
   try {
+    // Get school ID immediately - no waiting
+    final tenantSchool = ref.read(tenantContextProvider);
+    final authUser = ref.read(authStateProvider);
+    final schoolId = tenantSchool?.id ?? authUser?.schoolId;
+    
+    if (schoolId == null) {
+      return <SectionModel>[];
+    }
+    
+    // Set school ID and get sections
     final repo = ref.read(classRepositoryProvider);
-    return await repo.getSections(classId, activeOnly: true);
+    repo.setSchoolId(schoolId);
+    
+    return await repo.getSections(classId, activeOnly: true).timeout(
+      const Duration(seconds: 10),
+      onTimeout: () => <SectionModel>[],
+    );
   } catch (e) {
-    debugPrint('Error fetching sections: $e');
-    return const [];
+    debugPrint('SectionsProvider error: $e');
+    return <SectionModel>[];
   }
 });
 
@@ -64,7 +97,9 @@ final sectionProvider = FutureProvider.family<SectionModel?, int>((
 ) async {
   try {
     final repo = ref.read(classRepositoryProvider);
-    return await repo.getSectionById(sectionId);
+    return await repo
+        .getSectionById(sectionId)
+        .timeout(const Duration(seconds: 5), onTimeout: () => null);
   } catch (e) {
     debugPrint('Error fetching section: $e');
     return null;

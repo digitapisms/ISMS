@@ -10,6 +10,8 @@ import '../../../core/network/supabase_client.dart';
 import '../../../core/subscription/feature_badged_navigation_destination.dart';
 import '../../../core/subscription/feature_guard.dart';
 import '../../../core/tenant/tenant_context.dart';
+import '../../../core/tenant/school_context_provider.dart';
+import '../../../core/tenant/school_context_initializer.dart';
 import '../../admin/presentation/super_admin_dashboard.dart';
 import '../../authentication/application/auth_providers.dart';
 import '../../authentication/domain/app_user.dart';
@@ -45,7 +47,6 @@ import '../../inventory/presentation/inventory_screen.dart';
 import '../../backup_restore/presentation/backup_restore_screen.dart';
 import '../../reports/presentation/advanced_reports_screen.dart';
 import '../../performance/presentation/performance_dashboard_screen.dart';
-import '../../../core/localization/widgets/language_selector.dart';
 import '../../../core/theme/presentation/theme_settings_screen.dart';
 
 class DashboardShell extends ConsumerStatefulWidget {
@@ -216,18 +217,27 @@ class _DashboardShellState extends ConsumerState<DashboardShell> {
     final isWide = MediaQuery.of(context).size.width > 900;
     final authUser = ref.watch(authStateProvider);
 
-    // Load school context on mount and when authUser changes
+    // Initialize school context - MUST be watched so it stays alive and reacts
+    // to auth changes. Using read() here can lead to the initializer being
+    // disposed and school context never loading (infinite spinners across tabs).
+    ref.watch(schoolContextInitializerProvider);
+
+    // Also watch the loader so the dashboard can gate rendering until the
+    // school is available (prevents "infinite loading" in feature tabs).
+    final schoolLoader = ref.watch(schoolContextLoaderProvider);
+    final currentSchool = ref.watch(currentSchoolProvider);
+
+    // Also load school context on mount (legacy fallback)
     if (authUser != null && !_hasLoadedSchool) {
+      setState(() => _hasLoadedSchool = true);
+
       WidgetsBinding.instance.addPostFrameCallback((_) async {
         if (mounted) {
-          setState(() => _hasLoadedSchool = true);
-
           // Try to load from user's school_id first
           if (authUser.schoolId != null) {
             await _loadSchoolContext(ref, authUser.schoolId!);
           } else {
             // If no school_id in user, try to find school by user's email/role
-            // This handles the case where school was just created
             await _tryLoadSchoolByUser(ref, authUser);
           }
         }
@@ -242,6 +252,34 @@ class _DashboardShellState extends ConsumerState<DashboardShell> {
     // Super Admin Dashboard
     if (authUser?.role == UserRole.superAdmin) {
       return const SuperAdminDashboard();
+    }
+
+    // Gate: for logged-in non-superadmin users, ensure school context is loaded
+    // before rendering the feature shell. This prevents multiple tabs from
+    // seeing a null school and showing endless loading indicators.
+    if (authUser != null && currentSchool == null) {
+      return schoolLoader.when(
+        data: (school) => school == null
+            ? const Scaffold(
+                body: Center(
+                  child: Text(
+                    'Unable to determine your school. Please sign out and sign in again.',
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              )
+            : const Scaffold(body: Center(child: CircularProgressIndicator())),
+        loading: () =>
+            const Scaffold(body: Center(child: CircularProgressIndicator())),
+        error: (_, __) => const Scaffold(
+          body: Center(
+            child: Text(
+              'Unable to load school context. Please sign in again.',
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ),
+      );
     }
 
     // Show applicant-specific screens

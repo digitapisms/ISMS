@@ -69,7 +69,7 @@ class _MarkAttendanceTabState extends ConsumerState<MarkAttendanceTab> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       DropdownButtonFormField<int>(
-                        value: _selectedClassId,
+                        initialValue: _selectedClassId,
                         decoration: const InputDecoration(
                           labelText: 'Class *',
                           border: OutlineInputBorder(),

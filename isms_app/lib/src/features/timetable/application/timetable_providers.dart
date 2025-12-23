@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/errors/error_handler.dart';
+import '../../../core/errors/provider_helpers.dart';
 import '../../school_registration/application/school_providers.dart';
 import '../data/timetable_repository.dart';
 import '../domain/period.dart';
@@ -22,10 +24,17 @@ final timetableRepositoryProvider = Provider<TimetableRepository>((ref) {
 // ============================================================
 
 final periodsProvider = FutureProvider<List<Period>>((ref) async {
-  final school = ref.watch(currentSchoolProvider);
-  if (school == null) return [];
-  final repo = ref.read(timetableRepositoryProvider);
-  return repo.fetchPeriods(schoolId: school.id, isActive: true);
+  return safeProviderOperation<List<Period>>(
+    ref: ref,
+    operation: (schoolId) async {
+      final repo = ref.read(timetableRepositoryProvider);
+      return await repo
+          .fetchPeriods(schoolId: schoolId, isActive: true)
+          .timeout(const Duration(seconds: 10));
+    },
+    onError: () => <Period>[],
+    context: 'PeriodsProvider',
+  );
 });
 
 // ============================================================
@@ -33,10 +42,17 @@ final periodsProvider = FutureProvider<List<Period>>((ref) async {
 // ============================================================
 
 final roomsProvider = FutureProvider<List<Room>>((ref) async {
-  final school = ref.watch(currentSchoolProvider);
-  if (school == null) return [];
-  final repo = ref.read(timetableRepositoryProvider);
-  return repo.fetchRooms(schoolId: school.id, isActive: true);
+  return safeProviderOperation<List<Room>>(
+    ref: ref,
+    operation: (schoolId) async {
+      final repo = ref.read(timetableRepositoryProvider);
+      return await repo
+          .fetchRooms(schoolId: schoolId, isActive: true)
+          .timeout(const Duration(seconds: 10));
+    },
+    onError: () => <Room>[],
+    context: 'RoomsProvider',
+  );
 });
 
 // ============================================================
@@ -44,28 +60,54 @@ final roomsProvider = FutureProvider<List<Room>>((ref) async {
 // ============================================================
 
 final timetablesProvider = FutureProvider<List<Timetable>>((ref) async {
-  final school = ref.watch(currentSchoolProvider);
-  if (school == null) return [];
-  final repo = ref.read(timetableRepositoryProvider);
-  return repo.fetchTimetables(schoolId: school.id);
+  return safeProviderOperation<List<Timetable>>(
+    ref: ref,
+    operation: (schoolId) async {
+      final repo = ref.read(timetableRepositoryProvider);
+      return await repo
+          .fetchTimetables(schoolId: schoolId)
+          .timeout(const Duration(seconds: 10));
+    },
+    onError: () => <Timetable>[],
+    context: 'TimetablesProvider',
+  );
 });
 
 final timetablesByClassProvider = FutureProvider.family<List<Timetable>, int>((
   ref,
   classId,
 ) async {
-  final school = ref.watch(currentSchoolProvider);
-  if (school == null) return [];
-  final repo = ref.read(timetableRepositoryProvider);
-  return repo.fetchTimetables(schoolId: school.id, classId: classId);
+  return safeProviderOperation<List<Timetable>>(
+    ref: ref,
+    operation: (schoolId) async {
+      final repo = ref.read(timetableRepositoryProvider);
+      return await repo
+          .fetchTimetables(schoolId: schoolId, classId: classId)
+          .timeout(const Duration(seconds: 10));
+    },
+    onError: () => <Timetable>[],
+    context: 'TimetablesByClassProvider',
+  );
 });
 
 final timetableProvider = FutureProvider.family<Timetable, String>((
   ref,
   timetableId,
 ) async {
-  final timetables = await ref.read(timetablesProvider.future);
-  return timetables.firstWhere((t) => t.id == timetableId);
+  final correlationId = ErrorHandler.generateCorrelationId();
+
+  try {
+    final timetables = await ref.read(timetablesProvider.future);
+    return timetables.firstWhere((t) => t.id == timetableId);
+  } catch (e) {
+    final error = ErrorHandler.handleException(
+      e,
+      correlationId: correlationId,
+      context: 'TimetableProvider',
+    );
+    ErrorHandler.logError(error);
+    rethrow;
+  }
 });
 
 // ============================================================
@@ -77,23 +119,34 @@ final timetableEntriesProvider =
       ref,
       timetableId,
     ) async {
-      final school = ref.watch(currentSchoolProvider);
-      if (school == null) return [];
-      final repo = ref.read(timetableRepositoryProvider);
-      return repo.fetchTimetableEntries(
-        schoolId: school.id,
-        timetableId: timetableId,
+      return safeProviderOperation<List<TimetableEntry>>(
+        ref: ref,
+        operation: (schoolId) async {
+          final repo = ref.read(timetableRepositoryProvider);
+          return await repo
+              .fetchTimetableEntries(
+                schoolId: schoolId,
+                timetableId: timetableId,
+              )
+              .timeout(const Duration(seconds: 10));
+        },
+        onError: () => <TimetableEntry>[],
+        context: 'TimetableEntriesProvider',
       );
     });
 
 final teacherTimetableProvider =
     FutureProvider.family<List<TimetableEntry>, String>((ref, teacherId) async {
-      final school = ref.watch(currentSchoolProvider);
-      if (school == null) return [];
-      final repo = ref.read(timetableRepositoryProvider);
-      return repo.fetchTimetableEntries(
-        schoolId: school.id,
-        teacherId: teacherId,
+      return safeProviderOperation<List<TimetableEntry>>(
+        ref: ref,
+        operation: (schoolId) async {
+          final repo = ref.read(timetableRepositoryProvider);
+          return await repo
+              .fetchTimetableEntries(schoolId: schoolId, teacherId: teacherId)
+              .timeout(const Duration(seconds: 10));
+        },
+        onError: () => <TimetableEntry>[],
+        context: 'TeacherTimetableProvider',
       );
     });
 
@@ -106,11 +159,15 @@ final teacherAssignmentsProvider =
       ref,
       teacherId,
     ) async {
-      final school = ref.watch(currentSchoolProvider);
-      if (school == null) return [];
-      final repo = ref.read(timetableRepositoryProvider);
-      return repo.fetchTeacherAssignments(
-        schoolId: school.id,
-        teacherId: teacherId,
+      return safeProviderOperation<List<TeacherAssignment>>(
+        ref: ref,
+        operation: (schoolId) async {
+          final repo = ref.read(timetableRepositoryProvider);
+          return await repo
+              .fetchTeacherAssignments(schoolId: schoolId, teacherId: teacherId)
+              .timeout(const Duration(seconds: 10));
+        },
+        onError: () => <TeacherAssignment>[],
+        context: 'TeacherAssignmentsProvider',
       );
     });

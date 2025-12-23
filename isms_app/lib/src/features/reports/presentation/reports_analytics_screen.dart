@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/subscription/feature_guard.dart';
+import '../../../core/tenant/school_context_provider.dart';
 import '../../school_registration/application/school_providers.dart';
 import '../application/report_providers.dart';
 import '../domain/report_trend_point.dart';
@@ -46,9 +47,20 @@ class _ReportsAnalyticsScreenState
 
   @override
   Widget build(BuildContext context) {
+    // Ensure the school context loader is triggered and the UI reacts when
+    // the school becomes available (no "read + infinite spinner" issues).
+    final schoolLoader = ref.watch(schoolContextLoaderProvider);
     final school = ref.watch(currentSchoolProvider);
     if (school == null) {
-      return const Center(child: Text('Select a school to view reports.'));
+      return schoolLoader.when(
+        data: (loaded) => loaded == null
+            ? const Center(child: Text('Select a school to view reports.'))
+            : const Center(child: CircularProgressIndicator()),
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (_, __) => const Center(
+          child: Text('Unable to load school context. Please sign in again.'),
+        ),
+      );
     }
 
     final overviewAsync = ref.watch(schoolReportOverviewProvider(school.id));

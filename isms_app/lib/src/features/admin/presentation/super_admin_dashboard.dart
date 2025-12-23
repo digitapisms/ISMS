@@ -423,7 +423,7 @@ class _SuperAdminDashboardState extends ConsumerState<SuperAdminDashboard>
                           ),
                           const SizedBox(height: 16),
                           DropdownButtonFormField<String>(
-                            value: modelController.text,
+                            initialValue: modelController.text,
                             decoration: const InputDecoration(
                               labelText: 'Model',
                               border: OutlineInputBorder(),
